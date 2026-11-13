@@ -1,10 +1,10 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,10 +22,6 @@ All equations and variable names correspond to the following paper:
   https://arxiv.org/abs/1903.01373
 
 """
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import numpy as np
 import scipy.linalg as la
@@ -63,7 +59,8 @@ def _get_payoff(payoff_table_k, payoffs_are_hpt_format, strat_profile, k=None):
 
   if payoffs_are_hpt_format:
     # All games are supported when using HPTs
-    assert k is not None
+    if k is None:
+      raise ValueError('Agent index k must be provided for HPT format payoffs')
 
     # Compute HPT distribution (vector of # of players per strategy)
     distribution = payoff_table_k.get_distribution_from_profile(strat_profile)
@@ -106,12 +103,12 @@ def _get_singlepop_2player_fitness(payoff_table, payoffs_are_hpt_format, m,
   if use_local_selection_model:
     fitness = payoff_table[tuple([my_strat, opponent_strat])]
   else:
-    fitness = (my_popsize-1)/(m-1)*\
-                _get_payoff(payoff_table, payoffs_are_hpt_format,
-                            strat_profile=[my_strat, my_strat], k=0) +\
-              (m-my_popsize)/(m-1)*\
-                _get_payoff(payoff_table, payoffs_are_hpt_format,
-                            strat_profile=[my_strat, opponent_strat], k=0)
+    fitness = ((my_popsize-1)/(m-1)*
+               _get_payoff(payoff_table, payoffs_are_hpt_format,
+                           strat_profile=[my_strat, my_strat], k=0) +
+               (m-my_popsize)/(m-1)*
+               _get_payoff(payoff_table, payoffs_are_hpt_format,
+                           strat_profile=[my_strat, opponent_strat], k=0))
   return fitness
 
 
@@ -154,7 +151,10 @@ def _get_rho_sr(payoff_table,
           payoff_table, payoffs_are_hpt_format, strat_profile=[s, r], k=0)
       u = alpha * (payoff_rs - payoff_sr)
     else:
-      assert payoff_sum is not None
+      if payoff_sum is None:
+        raise ValueError(
+            'payoff_sum must not be None for multi-population games'
+        )
       u = alpha * m / (m - 1) * (payoff_rs - payoff_sum / 2)
 
     if np.isclose(u, 0, atol=1e-14):
@@ -163,7 +163,8 @@ def _get_rho_sr(payoff_table,
     else:
       result = (1 - np.exp(-u)) / (1 - np.exp(-m * u))
   else:
-    assert payoff_sum is None
+    if payoff_sum is not None:
+      raise ValueError('payoff_sum must be None for single-population games')
     summed = 0
     for l in range(1, m):
       t_mult = 1.
@@ -282,8 +283,8 @@ def _get_singlepop_transition_matrix(payoff_table,
     Markov transition matrix.
   """
 
-  num_strats_per_population =\
-    utils.get_num_strats_per_population([payoff_table], payoffs_are_hpt_format)
+  num_strats_per_population = utils.get_num_strats_per_population(
+      [payoff_table], payoffs_are_hpt_format)
   num_strats = num_strats_per_population[0]
 
   c = np.zeros((num_strats, num_strats))
@@ -331,8 +332,8 @@ def _get_multipop_transition_matrix(payoff_tables,
                                     inf_alpha_eps=0.1):
   """Gets Markov transition matrix for multipopulation games."""
 
-  num_strats_per_population =\
-    utils.get_num_strats_per_population(payoff_tables, payoffs_are_hpt_format)
+  num_strats_per_population = utils.get_num_strats_per_population(
+      payoff_tables, payoffs_are_hpt_format)
   num_profiles = utils.get_num_profiles(num_strats_per_population)
 
   eta = 1. / (np.sum(num_strats_per_population - 1))
@@ -475,16 +476,23 @@ def sweep_pi_vs_epsilon(payoff_tables,
   """
   payoffs_are_hpt_format = utils.check_payoffs_are_hpt(payoff_tables)
   num_populations = len(payoff_tables)
-  num_strats_per_population =\
-    utils.get_num_strats_per_population(payoff_tables, payoffs_are_hpt_format)
+  num_strats_per_population = utils.get_num_strats_per_population(
+      payoff_tables, payoffs_are_hpt_format)
 
   if num_populations == 1:
     num_profiles = num_strats_per_population[0]
   else:
     num_profiles = utils.get_num_profiles(num_strats_per_population)
 
-  assert strat_labels is None or isinstance(strat_labels, dict)\
+  if not (
+      strat_labels is None
+      or isinstance(strat_labels, dict)
       or (len(strat_labels) == num_profiles)
+  ):
+    raise ValueError(
+        'strat_labels must be None, a dict, or a list of length num_profiles'
+        ' ({}). Got length {}.'.format(num_profiles, len(strat_labels))
+    )
 
   pi_list = np.empty((num_profiles, 0))
   pi, alpha, m = None, None, None  # Unused in infinite-alpha regime
@@ -507,22 +515,27 @@ def sweep_pi_vs_epsilon(payoff_tables,
                                use_inf_alpha=True, inf_alpha_eps=epsilon)
       epsilon_pi_hist[epsilon] = pi
       # Stop when pi converges
-      if num_iters > min_iters and np.allclose(pi, pi_prev):
+      if num_iters > min_iters and np.allclose(pi, pi_prev):  # pyrefly: ignore[bad-argument-type]
         break
 
       epsilon *= epsilon_mult_factor
       num_iters += 1
       alpharank_succeeded_once = True
-      assert num_iters < max_iters, ('Alpharank stationary distr. not found'
-                                     'after {} iterations of pi_vs_epsilon'
-                                     'sweep'.format(num_iters))
+      if num_iters >= max_iters:
+        raise RuntimeError(
+            'AlphaRank stationary distribution not found after {} iterations '
+            'of pi_vs_epsilon sweep'.format(num_iters)
+        )
 
-    except ValueError as _:
-      print('Error: ', _, epsilon, min_epsilon)
+    except ValueError as value_error:
+      print('Error: ', value_error, epsilon, min_epsilon)
       # Case where epsilon has been decreased beyond desirable limits but no
       # distribution found.
-      assert epsilon >= min_epsilon, ('AlphaRank stationary distr. not found &'
-                                      'epsilon < min_epsilon.')
+      if epsilon < min_epsilon:
+        raise RuntimeError(
+            'AlphaRank stationary distribution not found and '
+            'epsilon < min_epsilon.'
+        ) from value_error
       # Case where epsilon >= min_epsilon, but still small enough that it causes
       # causes exceptions due to precision issues. So increase it.
       epsilon /= epsilon_mult_factor
@@ -600,31 +613,43 @@ def sweep_pi_vs_alpha(payoff_tables,
 
   payoffs_are_hpt_format = utils.check_payoffs_are_hpt(payoff_tables)
   num_populations = len(payoff_tables)
-  num_strats_per_population =\
-    utils.get_num_strats_per_population(payoff_tables, payoffs_are_hpt_format)
+  num_strats_per_population = utils.get_num_strats_per_population(
+      payoff_tables, payoffs_are_hpt_format)
 
   if num_populations == 1:
     num_profiles = num_strats_per_population[0]
   else:
     num_profiles = utils.get_num_profiles(num_strats_per_population)
 
-  assert strat_labels is None or isinstance(strat_labels, dict)\
+  if not (
+      strat_labels is None
+      or isinstance(strat_labels, dict)
       or (len(strat_labels) == num_profiles)
+  ):
+    raise ValueError(
+        'strat_labels must be None, a dict, or a list of length num_profiles'
+        ' ({}). Got length {}.'.format(num_profiles, len(strat_labels))
+    )
 
   pi_list = np.empty((num_profiles, 0))
   alpha_list = []
   num_iters = 0
+  num_failed_attempts = 0
   alpha_mult_factor = 2.
+  # Retrying only helps while alpha is in a regime compute() can recover from.
+  # Cap the failures in a row so a payoff table that always blows up (e.g.
+  # non-finite payoffs) raises instead of shrinking alpha forever.
+  max_failed_attempts = 64
 
   if warm_start_alpha is not None:
     alpha = warm_start_alpha
-    alpharank_succeeded_once = False
   else:
     alpha = 1e-4  # Reasonable default for most games, can be user-overridden
 
   while 1:
     try:
       _, _, pi, _, _ = compute(payoff_tables, alpha=alpha, m=m)
+      num_failed_attempts = 0
       pi_list = np.append(pi_list, np.reshape(pi, (-1, 1)), axis=1)
       alpha_list.append(alpha)
       # Stop when pi converges
@@ -633,17 +658,27 @@ def sweep_pi_vs_alpha(payoff_tables,
         break
       alpha *= alpha_mult_factor
       num_iters += 1
-      alpharank_succeeded_once = True
-    except ValueError as _:
-      if warm_start_alpha is not None and not alpharank_succeeded_once:
-        # When warm_start_alpha is used, there's a chance that
-        # the initial warm_start_alpha is too large and causes exceptions due to
-        # the Markov transition matrix being reducible. So keep decreasing until
-        # a single success occurs.
+    except ValueError as value_error:
+      num_failed_attempts += 1
+      if num_failed_attempts > max_failed_attempts:
+        raise RuntimeError(
+            'AlphaRank stationary distribution not found after {} failed '
+            'attempts of the pi_vs_alpha sweep (last alpha={}).'.format(
+                num_failed_attempts, alpha
+            )
+        ) from value_error
+      if num_iters == 0:
+        # No successful compute yet: the current alpha puts the Markov chain
+        # in a reducible (or numerically degenerate) regime, so walk alpha down
+        # until the first compute succeeds.
         alpha /= 2
-      elif not np.allclose(pi_list[:, -1], pi_list[:, -2], rtol, atol):
+      elif num_iters < 2 or not np.allclose(
+          pi_list[:, -1], pi_list[:, -2], rtol, atol
+      ):
         # Sweep stopped due to multiple stationary distributions, but pi had
-        # not converged due to the alpha scaling being too large.
+        # not converged due to the alpha scaling being too large. Before the
+        # second success there is nothing to compare against, so treat pi as
+        # not converged and shrink the step.
         alpha /= alpha_mult_factor
         alpha_mult_factor = (alpha_mult_factor + 1.) / 2.
         alpha *= alpha_mult_factor
@@ -664,9 +699,9 @@ def sweep_pi_vs_alpha(payoff_tables,
         legend_sort_clusters=legend_sort_clusters)
 
   if return_alpha:
-    return pi, alpha
+    return pi, alpha  # pyrefly: ignore[unbound-name]
   else:
-    return pi
+    return pi  # pyrefly: ignore[unbound-name]
 
 
 def compute_and_report_alpharank(payoff_tables,
@@ -739,8 +774,8 @@ def compute(payoff_tables,
 
   num_populations = len(payoff_tables)
 
-  num_strats_per_population =\
-    utils.get_num_strats_per_population(payoff_tables, payoffs_are_hpt_format)
+  num_strats_per_population = utils.get_num_strats_per_population(
+      payoff_tables, payoffs_are_hpt_format)
 
   # Handles the trivial case of Markov chain with one state
   if np.array_equal(num_strats_per_population,
@@ -824,8 +859,8 @@ def suggest_alpha(payoff_tables, tol=.1):
   """
   payoffs_are_hpt_format = utils.check_payoffs_are_hpt(payoff_tables)
 
-  num_strats_per_population =\
-    utils.get_num_strats_per_population(payoff_tables, payoffs_are_hpt_format)
+  num_strats_per_population = utils.get_num_strats_per_population(
+      payoff_tables, payoffs_are_hpt_format)
   num_profiles = utils.get_num_profiles(num_strats_per_population)
 
   gap = np.inf
@@ -846,4 +881,3 @@ def suggest_alpha(payoff_tables, tol=.1):
         gap = min(gap, f_r - f_s)
 
   return -np.log(tol)/gap
-

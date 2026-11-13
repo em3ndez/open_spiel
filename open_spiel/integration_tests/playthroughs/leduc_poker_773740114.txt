@@ -6,7 +6,7 @@ GameType.information = Information.IMPERFECT_INFORMATION
 GameType.long_name = "Leduc Poker"
 GameType.max_num_players = 10
 GameType.min_num_players = 2
-GameType.parameter_specification = ["action_mapping", "players", "suit_isomorphism"]
+GameType.parameter_specification = ["action_mapping", "players", "starting_player", "suit_isomorphism"]
 GameType.provides_information_state_string = True
 GameType.provides_information_state_tensor = True
 GameType.provides_observation_string = True
@@ -19,7 +19,7 @@ GameType.utility = Utility.ZERO_SUM
 NumDistinctActions() = 3
 PolicyTensorShape() = [3]
 MaxChanceOutcomes() = 6
-GetParameters() = {action_mapping=False,players=2,suit_isomorphism=False}
+GetParameters() = {action_mapping=False,players=2,starting_player=0,suit_isomorphism=False}
 NumPlayers() = 2
 MinUtility() = -13.0
 MaxUtility() = 13.0
@@ -37,8 +37,8 @@ ToString() = "leduc_poker()"
 # Round: 1
 # Player: -1
 # Pot: 2
-# Money (p1 p2 ...): 99 99
-# Cards (public p1 p2 ...): -10000 -10000 -10000
+# Money (player_0 player_1): 99 99
+# Cards (public player_0 player_1): -10000 -10000 -10000
 # Round 1 sequence:
 # Round 2 sequence:
 IsTerminal() = False
@@ -78,7 +78,7 @@ ObservationTensor(1).player: ◯◉
 ObservationTensor(1).private_card: ◯◯◯◯◯◯
 ObservationTensor(1).community_card: ◯◯◯◯◯◯
 ObservationTensor(1).pot_contribution: ◉◉
-ChanceOutcomes() = [(0, 0.16666666666666666), (1, 0.16666666666666666), (2, 0.16666666666666666), (3, 0.16666666666666666), (4, 0.16666666666666666), (5, 0.16666666666666666)]
+ChanceOutcomes() = [(0,0.166667), (1,0.166667), (2,0.166667), (3,0.166667), (4,0.166667), (5,0.166667)]
 LegalActions() = [0, 1, 2, 3, 4, 5]
 StringLegalActions() = ["Chance outcome:0", "Chance outcome:1", "Chance outcome:2", "Chance outcome:3", "Chance outcome:4", "Chance outcome:5"]
 
@@ -89,8 +89,8 @@ action: 0
 # Round: 1
 # Player: -1
 # Pot: 2
-# Money (p1 p2 ...): 99 99
-# Cards (public p1 p2 ...): -10000 0 -10000
+# Money (player_0 player_1): 99 99
+# Cards (public player_0 player_1): -10000 0 -10000
 # Round 1 sequence:
 # Round 2 sequence:
 IsTerminal() = False
@@ -130,7 +130,7 @@ ObservationTensor(1).player: ◯◉
 ObservationTensor(1).private_card: ◯◯◯◯◯◯
 ObservationTensor(1).community_card: ◯◯◯◯◯◯
 ObservationTensor(1).pot_contribution: ◉◉
-ChanceOutcomes() = [(1, 0.2), (2, 0.2), (3, 0.2), (4, 0.2), (5, 0.2)]
+ChanceOutcomes() = [(1,0.2), (2,0.2), (3,0.2), (4,0.2), (5,0.2)]
 LegalActions() = [1, 2, 3, 4, 5]
 StringLegalActions() = ["Chance outcome:1", "Chance outcome:2", "Chance outcome:3", "Chance outcome:4", "Chance outcome:5"]
 
@@ -141,8 +141,8 @@ action: 3
 # Round: 1
 # Player: 0
 # Pot: 2
-# Money (p1 p2 ...): 99 99
-# Cards (public p1 p2 ...): -10000 0 3
+# Money (player_0 player_1): 99 99
+# Cards (public player_0 player_1): -10000 0 3
 # Round 1 sequence:
 # Round 2 sequence:
 IsTerminal() = False
@@ -182,8 +182,8 @@ ObservationTensor(1).player: ◯◉
 ObservationTensor(1).private_card: ◯◯◯◉◯◯
 ObservationTensor(1).community_card: ◯◯◯◯◯◯
 ObservationTensor(1).pot_contribution: ◉◉
-Rewards() = [0.0, 0.0]
-Returns() = [0.0, 0.0]
+Rewards() = [0, 0]
+Returns() = [0, 0]
 LegalActions() = [1, 2]
 StringLegalActions() = ["Call", "Raise"]
 
@@ -194,8 +194,8 @@ action: 2
 # Round: 1
 # Player: 1
 # Pot: 4
-# Money (p1 p2 ...): 97 99
-# Cards (public p1 p2 ...): -10000 0 3
+# Money (player_0 player_1): 97 99
+# Cards (public player_0 player_1): -10000 0 3
 # Round 1 sequence: Raise
 # Round 2 sequence:
 IsTerminal() = False
@@ -235,8 +235,8 @@ ObservationTensor(1).player: ◯◉
 ObservationTensor(1).private_card: ◯◯◯◉◯◯
 ObservationTensor(1).community_card: ◯◯◯◯◯◯
 ObservationTensor(1).pot_contribution = [3.0, 1.0]
-Rewards() = [0.0, 0.0]
-Returns() = [0.0, 0.0]
+Rewards() = [0, 0]
+Returns() = [0, 0]
 LegalActions() = [0, 1, 2]
 StringLegalActions() = ["Fold", "Call", "Raise"]
 
@@ -247,8 +247,8 @@ action: 0
 # Round: 1
 # Player: 1
 # Pot: 0
-# Money (p1 p2 ...): 101 99
-# Cards (public p1 p2 ...): -10000 0 3
+# Money (player_0 player_1): 101 99
+# Cards (public player_0 player_1): -10000 0 3
 # Round 1 sequence: Raise, Fold
 # Round 2 sequence:
 IsTerminal() = True
@@ -288,5 +288,5 @@ ObservationTensor(1).player: ◯◉
 ObservationTensor(1).private_card: ◯◯◯◉◯◯
 ObservationTensor(1).community_card: ◯◯◯◯◯◯
 ObservationTensor(1).pot_contribution = [3.0, 1.0]
-Rewards() = [1.0, -1.0]
-Returns() = [1.0, -1.0]
+Rewards() = [1, -1]
+Returns() = [1, -1]

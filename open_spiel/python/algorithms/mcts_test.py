@@ -1,22 +1,16 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-"""Tests for open_spiel.python.algorithms.mcts."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import math
 import random
@@ -214,6 +208,24 @@ class MctsBotTest(absltest.TestCase):
         make_node(0, explore_count=50, total_reward=10, outcome=[-1]),
         make_node(1, explore_count=60, total_reward=15, outcome=[-1]),
     ])
+
+  def test_invalid_action_at_chance_node(self):
+    game = pyspiel.load_game("backgammon")
+    state = game.new_initial_state()
+    assert state.is_chance_node(), "Backgammon should start at a chance node."
+    rng = np.random.RandomState(42)
+    bot = mcts.MCTSBot(
+        game,
+        UCT_C,
+        max_simulations=10,
+        solve=True,
+        random_state=rng,
+        evaluator=mcts.RandomRolloutEvaluator(n_rollouts=20, random_state=rng),
+    )
+    policy, action = bot.step_with_policy(state)
+    self.assertLen(policy, 1)
+    self.assertEqual(policy[0][0], pyspiel.INVALID_ACTION)
+    self.assertEqual(action, pyspiel.INVALID_ACTION)
 
 
 if __name__ == "__main__":

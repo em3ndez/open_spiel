@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2019 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,14 +16,14 @@
 #define OPEN_SPIEL_GAMES_IMPL_CHESS_CHESS_BOARD_H_
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <ostream>
 #include <string>
 #include <utility>
-#include <vector>
 
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
+#include "absl/types/optional.h"
 #include "open_spiel/games/chess/chess_common.h"
 #include "open_spiel/spiel_utils.h"
 
@@ -52,7 +52,7 @@ inline std::ostream& operator<<(std::ostream& stream, Color c) {
   return stream << ColorToString(c);
 }
 
-enum class CastlingDirection { kLeft, kRight };
+enum class CastlingDirection { kLeft, kRight, kNone };
 
 int ToInt(CastlingDirection dir);
 
@@ -141,24 +141,25 @@ struct Move {
   Square to;
   Piece piece;
   PieceType promotion_type;
+  CastlingDirection castle_dir = CastlingDirection::kNone;
 
-  // We have to record castling here, because in Chess960 we may not be able to
-  // tell just from "from" and "to" squares.
-  bool is_castling = false;
-
-  Move() : is_castling(false) {}
+  Move() : castle_dir(CastlingDirection::kNone) {}
   Move(const Square& from, const Square& to, const Piece& piece,
-       PieceType promotion_type = PieceType::kEmpty, bool is_castling = false)
+       PieceType promotion_type = PieceType::kEmpty,
+       CastlingDirection castle_dir = CastlingDirection::kNone)
       : from(from),
         to(to),
         piece(piece),
         promotion_type(promotion_type),
-        is_castling(is_castling) {}
+        castle_dir(castle_dir) {}
 
   std::string ToString() const;
 
   // Converts to long algebraic notation, as required by the UCI protocol.
-  std::string ToLAN() const;
+  // In the case of chess960, the castling move is converted to the format
+  // <king position> <rook position> it is castling with so it needs the board.
+  std::string ToLAN(bool chess960 = false,
+                    const ChessBoard* board_ptr = nullptr) const;
 
   // Converts to standard algebraic notation, as required by portable game
   // notation (PGN). It is a chess move notation that is designed to be
@@ -179,7 +180,7 @@ struct Move {
   // [x] is only included for captures
   // [to square] is always included
   // [=Promo] is only included for promotions ("=N", "=B", "=R", "=Q" depending
-  //     on type promoting to).
+  //     on type promoting to, possibly "=K" if king promotion is allowed).
   // [annotations] are a list of 0 or more characters added with different
   //     meanings. The ones we care about are '+' for check, and '#' for
   //     checkmate. All others are optional.
@@ -208,10 +209,12 @@ struct Move {
   //                novelty that gives white a clear but not winning advantage)
   std::string ToSAN(const ChessBoard& board) const;
 
+  bool is_castling() const { return castle_dir != CastlingDirection::kNone; }
+
   bool operator==(const Move& other) const {
     return from == other.from && to == other.to && piece == other.piece &&
            promotion_type == other.promotion_type &&
-           is_castling == other.is_castling;
+           castle_dir == other.castle_dir;
   }
 };
 
@@ -232,21 +235,37 @@ inline const std::string kDefaultSmallFEN = "r1kr/pppp/PPPP/R1KR w - - 0 1";
 
 using ObservationTable = std::array<bool, k2dMaxBoardSize>;
 
+// Specifies policy for pseudo legal moves generation.
 enum PseudoLegalMoveSettings {
-  kBreachEnemyPieces,
+  // Standard legal moves (do not allow to move past enemy pieces).
   kAcknowledgeEnemyPieces,
+  // Pseudo-legal moves, where a piece can move anywhere (according to the rules
+  // for that piece), except if it was blocked from doing so by other player's
+  // pieces. This is used in games, where the player may not know the position
+  // of an enemy piece (like Kriegspiel or RBC) and it can try to move past the
+  // enemy (for example a rook can try to move the other side of the board, even
+  // if it is in fact blocked by an unseen opponent's pawn).
+  kBreachEnemyPieces,
 };
+
+// Some chess variants (RBC) allow a "pass" action/move
+inline constexpr open_spiel::Action kPassAction = 0;
+inline const chess::Move kPassMove =
+    Move(Square{-1, -1}, Square{-1, -1},
+         Piece{Color::kEmpty, PieceType::kEmpty});
 
 class ChessBoard {
  public:
   ChessBoard(int board_size = kDefaultBoardSize,
-             bool king_in_check_allowed = false);
+             bool king_in_check_allowed = false, bool allow_pass_move = false,
+             bool allow_king_promotion = false);
 
   // Constructs a chess board at the given position in Forsyth-Edwards Notation.
   // https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation
   static absl::optional<ChessBoard> BoardFromFEN(
       const std::string& fen, int board_size = 8,
-      bool king_in_check_allowed = false);
+      bool king_in_check_allowed = false, bool allow_pass_move = false,
+      bool allow_king_promotion = false);
 
   const Piece& at(Square sq) const { return board_[SquareToIndex_(sq)]; }
 
@@ -263,9 +282,19 @@ class ChessBoard {
   int32_t IrreversibleMoveCounter() const { return irreversible_move_counter_; }
   int32_t Movenumber() const { return move_number_; }
 
-  bool CastlingRight(Color side, CastlingDirection direction) const;
+  absl::optional<Square> MaybeCastlingRookSquare(
+      Color side, CastlingDirection direction) const;
+
+  bool CastlingRight(Color color, CastlingDirection dir) const {
+    return MaybeCastlingRookSquare(color, dir).has_value();
+  }
+
+  char ShredderCastlingRightChar(Color color, CastlingDirection dir) const;
+
   void SetCastlingRight(Color side, CastlingDirection direction,
-                        bool can_castle);
+                        absl::optional<Square> maybe_rook_square);
+
+  Square FindRookForCastling(Color color, CastlingDirection dir) const;
 
   // Find the location of any one piece of the given type, or kInvalidSquare.
   Square find(const Piece& piece) const;
@@ -328,9 +357,10 @@ class ChessBoard {
   // 4. K+B* vs K+B* (all bishops on same coloured squares)
   bool HasSufficientMaterial() const;
 
-  // Parses a move in standard algebraic notation or long algebraic notation (
-  // see below). Returns absl::nullopt on failure.
-  absl::optional<Move> ParseMove(const std::string& move) const;
+  // Parses a move in standard algebraic notation or long algebraic notation
+  // (see below). Returns absl::nullopt on failure.
+  absl::optional<Move> ParseMove(const std::string& move,
+                                 bool chess960 = false) const;
 
   // Parses a move in standard algebraic notation as defined by FIDE.
   // https://en.wikipedia.org/wiki/Algebraic_notation_(chess).
@@ -342,7 +372,8 @@ class ChessBoard {
   // but the one we care about is of the form "e2e4" and "f7f8q". This is the
   // form used by chess engine text protocols that are of interest to us.
   // Returns absl::nullopt on failure.
-  absl::optional<Move> ParseLANMove(const std::string& move) const;
+  absl::optional<Move> ParseLANMove(const std::string& move,
+                                    bool chess960 = false) const;
 
   void ApplyMove(const Move& move);
 
@@ -398,15 +429,20 @@ class ChessBoard {
 
   bool KingInCheckAllowed() const { return king_in_check_allowed_; }
 
+  bool AllowPassMove() const { return allow_pass_move_; }
+
+  // Some variants allow promoting pawns to kings, like Antichess.
+  bool AllowKingPromotion() const { return allow_king_promotion_; }
+
   uint64_t HashValue() const { return zobrist_hash_; }
 
-  std::string DebugString() const;
+  std::string DebugString(bool shredder_fen = false) const;
 
   std::string ToUnicodeString() const;
 
   // Constructs a string describing the chess board position in Forsyth-Edwards
   // Notation. https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation
-  std::string ToFEN() const;
+  std::string ToFEN(bool shredder = false) const;
 
   /* Constructs a string describing the dark chess board position in a notation
    * similar to Forsyth-Edwards Notation.
@@ -422,6 +458,9 @@ class ChessBoard {
    */
   std::string ToDarkFEN(const ObservationTable& observability_table,
                         Color color) const;
+
+  bool IsBreachingMove(Move move) const;
+  void BreachingMoveToCaptureMove(Move* move) const;
 
  private:
   size_t SquareToIndex_(Square sq) const { return sq.y * board_size_ + sq.x; }
@@ -457,6 +496,12 @@ class ChessBoard {
   void GenerateCastlingDestinations_(Square sq, Color color,
                                      PseudoLegalMoveSettings settings,
                                      const YieldFn& yield) const;
+  bool CanCastle(Square king_sq, Color color,
+                 PseudoLegalMoveSettings settings) const;
+  bool CanCastleBetween(Square from_sq, Square to_sq,
+                        bool check_safe_from_opponent,
+                        PseudoLegalMoveSettings settings,
+                        Square exception_sq = kInvalidSquare) const;
 
   template <typename YieldFn>
   void GenerateQueenDestinations_(Square sq, Color color,
@@ -498,9 +543,12 @@ class ChessBoard {
 
   void SetIrreversibleMoveCounter(int c);
   void SetMovenumber(int move_number);
+  bool EpSquareThreatened(Square ep_square) const;
 
   int board_size_;
   bool king_in_check_allowed_;
+  bool allow_pass_move_;
+  bool allow_king_promotion_;
 
   std::array<Piece, k2dMaxBoardSize> board_;
   Color to_play_;
@@ -511,9 +559,11 @@ class ChessBoard {
   // chess is a "half move" by white followed by a "half move" by black).
   int32_t move_number_;
 
+  // Set to the square of the rook if castling is still possible in that
+  // direction, otherwise nullopt.
   struct {
-    bool left_castle;   // -x direction, AKA long castle
-    bool right_castle;  // +x direction, AKA short castle
+    absl::optional<Square> left_castle;   // -x direction, AKA long castle
+    absl::optional<Square> right_castle;  // +x direction, AKA short castle
   } castling_rights_[2];
 
   uint64_t zobrist_hash_;

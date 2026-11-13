@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,18 +14,31 @@
 
 #include "open_spiel/python/pybind11/python_games.h"
 
+#include <algorithm>
 #include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 // Interface code for using Python Games and States from C++.
 
-#include "open_spiel/abseil-cpp/absl/strings/escaping.h"
-#include "open_spiel/abseil-cpp/absl/strings/numbers.h"
-#include "open_spiel/abseil-cpp/absl/strings/string_view.h"
+#include "absl/container/inlined_vector.h"
+#include "absl/strings/escaping.h"
+#include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/optional.h"
+#include "absl/types/span.h"
+#include "nlohmann/json.hpp"
 #include "open_spiel/game_parameters.h"
+#include "open_spiel/observer.h"
 #include "open_spiel/python/pybind11/pybind11.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_globals.h"
 #include "open_spiel/spiel_utils.h"
+#include "pybind11_json/pybind11_json.hpp"
 
 namespace open_spiel {
 
@@ -40,11 +53,33 @@ std::unique_ptr<State> PyGame::NewInitialState() const {
                               NewInitialState);
 }
 
+std::unique_ptr<State> PyGame::NewInitialState(const std::string& str) const {
+  PYBIND11_OVERLOAD_PURE_NAME(std::unique_ptr<State>, Game, "new_initial_state",
+                              NewInitialState, str);
+}
+
+std::unique_ptr<State> PyGame::NewInitialState(
+    const nlohmann::json& json) const {
+  py::function fn =
+      py::get_override(static_cast<const Game*>(this), "new_initial_state");
+  if (fn) {
+    // pybind11_json auto-converts nlohmann::json to a Python dict.
+    py::object result = fn(json);
+    return result.cast<std::unique_ptr<State>>();
+  }
+  return Game::NewInitialState(json);
+}
+
 std::unique_ptr<State> PyGame::NewInitialStateForPopulation(
     int population) const {
   PYBIND11_OVERLOAD_PURE_NAME(std::unique_ptr<State>, Game,
                               "new_initial_state_for_population",
                               NewInitialStateForPopulation, population);
+}
+
+int PyGame::MaxChanceNodesInHistory() const {
+  PYBIND11_OVERRIDE_NAME(int, Game, "max_chance_nodes_in_history",
+                         MaxChanceNodesInHistory);
 }
 
 const Observer& PyGame::default_observer() const {
@@ -76,7 +111,7 @@ std::vector<Action> PyState::LegalActions(Player player) const {
                                 LegalActions, player);
   } else if (player < 0) {
     SpielFatalError(
-        absl::StrCat("Called LegalActions for psuedo-player ", player));
+        absl::StrCat("Called LegalActions for pseudo-player ", player));
   } else {
     return {};
   }
@@ -140,6 +175,67 @@ std::unique_ptr<State> PyState::Clone() const {
   return rv;
 }
 
+std::vector<std::string> PyState::DistributionSupport() {
+  PYBIND11_OVERLOAD_PURE_NAME(std::vector<std::string>, State,
+                              "distribution_support", DistributionSupport);
+}
+void PyState::UpdateDistribution(const std::vector<double>& distribution) {
+  PYBIND11_OVERLOAD_PURE_NAME(void, State, "update_distribution",
+                              UpdateDistribution, distribution);
+}
+
+// SpielStruct API trampoline implementations.
+// Each method checks for a Python override, converts Python dicts to/from
+// generic Dict*Struct wrappers. Falls through to C++ base if no override.
+
+std::unique_ptr<StateStruct> PyState::ToStruct() const {
+  py::function fn =
+      py::get_override(static_cast<const State*>(this), "_to_struct");
+  if (fn) {
+    py::object result = fn();
+    nlohmann::json j = result.cast<nlohmann::json>();
+    return std::make_unique<DictStateStruct>(std::move(j));
+  }
+  return State::ToStruct();
+}
+
+std::unique_ptr<ActionStruct> PyState::ActionToStruct(Player player,
+                                                      Action action_id) const {
+  py::function fn =
+      py::get_override(static_cast<const State*>(this), "_action_to_struct");
+  if (fn) {
+    py::object result = fn(player, action_id);
+    nlohmann::json j = result.cast<nlohmann::json>();
+    return std::make_unique<DictActionStruct>(std::move(j));
+  }
+  return State::ActionToStruct(player, action_id);
+}
+
+std::vector<Action> PyState::StructToActions(
+    const ActionStruct& action_struct) const {
+  py::function fn =
+      py::get_override(static_cast<const State*>(this), "_struct_to_actions");
+  if (fn) {
+    // Convert the ActionStruct to a JSON dict and pass to Python.
+    py::object json_dict = py::cast(action_struct.to_json_base());
+    py::object result = fn(json_dict);
+    return result.cast<std::vector<Action>>();
+  }
+  return State::StructToActions(action_struct);
+}
+
+std::unique_ptr<ObservationStruct> PyState::ToObservationStruct(
+    Player player) const {
+  py::function fn = py::get_override(static_cast<const State*>(this),
+                                     "_to_observation_struct");
+  if (fn) {
+    py::object result = fn(player);
+    nlohmann::json j = result.cast<nlohmann::json>();
+    return std::make_unique<DictObservationStruct>(std::move(j));
+  }
+  return State::ToObservationStruct(player);
+}
+
 // Register a Python game.
 void RegisterPyGame(const GameType& game_type, py::function creator) {
   GameRegisterer::RegisterGame(
@@ -192,8 +288,8 @@ void PyObserver::WriteTensor(const State& state, int player,
     const int dims = a.ndim();
     absl::InlinedVector<int, 4> shape(dims);
     for (int i = 0; i < dims; ++i) shape[i] = a.shape(i);
-    auto out = allocator->Get(k.cast<std::string>(), shape);
-    std::copy(a.data(), a.data() + a.size(), out.data.data());
+    SpanTensor out = allocator->Get(k.cast<std::string>(), shape);
+    std::copy(a.data(), a.data() + a.size(), out.data().begin());
   }
 }
 
@@ -238,16 +334,15 @@ void PyState::InformationStateTensor(Player player,
 
 namespace {
 std::vector<int> TensorShape(const TrackingVectorAllocator& allocator) {
-  switch (allocator.tensors.size()) {
+  switch (allocator.tensors_info().size()) {
     case 0:
       return {};
     case 1:
-      return allocator.tensors.front().shape;
+      return allocator.tensors_info().front().vector_shape();
     default: {
       int size = 0;
-      for (auto tensor : allocator.tensors) {
-        size += std::accumulate(tensor.shape.begin(), tensor.shape.end(), 1,
-                                std::multiplies<int>());
+      for (const auto& info : allocator.tensors_info()) {
+        size += info.size();
       }
       return {size};
     }
@@ -256,10 +351,13 @@ std::vector<int> TensorShape(const TrackingVectorAllocator& allocator) {
 }  // namespace
 
 std::vector<int> PyGame::InformationStateTensorShape() const {
-  TrackingVectorAllocator allocator;
-  auto state = NewInitialState();
-  info_state_observer().WriteTensor(*state, kDefaultPlayerId, &allocator);
-  return TensorShape(allocator);
+  if (!information_state_tensor_shape_.has_value()) {
+    TrackingVectorAllocator allocator;
+    auto state = NewInitialState();
+    info_state_observer().WriteTensor(*state, kDefaultPlayerId, &allocator);
+    information_state_tensor_shape_ = TensorShape(allocator);
+  }
+  return *information_state_tensor_shape_;
 }
 
 void PyState::ObservationTensor(Player player, absl::Span<float> values) const {
@@ -271,10 +369,13 @@ void PyState::ObservationTensor(Player player, absl::Span<float> values) const {
 }
 
 std::vector<int> PyGame::ObservationTensorShape() const {
-  TrackingVectorAllocator allocator;
-  auto state = NewInitialState();
-  default_observer().WriteTensor(*state, kDefaultPlayerId, &allocator);
-  return TensorShape(allocator);
+  if (!observation_tensor_shape_.has_value()) {
+    TrackingVectorAllocator allocator;
+    auto state = NewInitialState();
+    default_observer().WriteTensor(*state, kDefaultPlayerId, &allocator);
+    observation_tensor_shape_ = TensorShape(allocator);
+  }
+  return *observation_tensor_shape_;
 }
 
 py::dict PyDict(const State& state) {
@@ -355,11 +456,10 @@ std::string PyState::Serialize() const {
 }
 
 int PyState::MeanFieldPopulation() const {
-  // Use a python population() implementation if available.
-  PYBIND11_OVERRIDE_IMPL(int, State, "mean_field_population");
-
-  // Otherwise, default to behavior from the base class.
-  return State::MeanFieldPopulation();
+  // Use a Python implementation if available, fall back to the C++
+  // implementation if not.
+  PYBIND11_OVERRIDE_NAME(int, State, "mean_field_population",
+                              MeanFieldPopulation, /* no arguments */);
 }
 
 }  // namespace open_spiel

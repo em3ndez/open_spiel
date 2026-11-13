@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,17 +30,54 @@ void init_pyspiel_observer(py::module& m) {
   py::class_<Observer, std::shared_ptr<Observer>>(m, "Observer")
       .def("__str__", [](const Observer& self) { return "Observer()"; });
 
-  py::class_<TensorInfo>(m, "TensorInfo")
-      .def_readonly("name", &TensorInfo::name)
-      .def_readonly("shape", &TensorInfo::shape)
-      .def("__str__", &TensorInfo::DebugString);
+  py::class_<SpanTensorInfo>(m, "SpanTensorInfo")
+      .def_property_readonly(
+          "name", [](const SpanTensorInfo& info) { return info.name(); })
+      .def_property_readonly(
+          "shape",
+          [](const SpanTensorInfo& info) { return info.vector_shape(); })
+      .def("__str__", &SpanTensorInfo::DebugString);
+
+  py::class_<SpanTensor>(m, "SpanTensor")
+      .def_property_readonly(
+          "name", [](const SpanTensor& tensor) { return tensor.info().name(); })
+      .def_property_readonly(
+          "shape",
+          [](const SpanTensor& tensor) { return tensor.info().vector_shape(); })
+      .def_property_readonly(
+          "data",
+          [](const SpanTensor& tensor) {
+            // Expose the raw data as a zero-copy numpy array.
+            // We use a dummy capsule to ensure Pybind11 doesn't
+            // try to free the memory, as SpanTensor doesn't own it.
+            std::vector<py::ssize_t> shape;
+            for (int dim : tensor.info().shape()) {
+              shape.push_back(dim);
+            }
+            std::vector<py::ssize_t> strides;
+            if (!shape.empty()) {
+              strides.resize(shape.size());
+              strides.back() = sizeof(float);
+              for (int i = static_cast<int>(shape.size()) - 2; i >= 0; --i) {
+                strides[i] = strides[i + 1] * shape[i + 1];
+              }
+            }
+            py::capsule dummy(tensor.data().data(), [](void*) {});
+            return py::array_t<float>(shape, strides, tensor.data().data(),
+                                      dummy);
+          })
+      .def("__str__", &SpanTensor::DebugString);
 
   // C++ Observation, intended only for the Python Observation class, not
   // for general Python code.
   py::class_<Observation>(m, "_Observation", py::buffer_protocol())
-      .def(py::init<const Game&, std::shared_ptr<Observer>>(), py::arg("game"),
-           py::arg("observer"))
-      .def("tensor_info", &Observation::tensor_info)
+      .def(py::init([](std::shared_ptr<const Game> game,
+                       std::shared_ptr<Observer> observer) {
+             return new Observation(*game, observer);
+           }),
+           py::arg("game"), py::arg("observer"))
+      .def("tensors", &Observation::tensors)
+      .def("tensors_info", &Observation::tensors_info)
       .def("string_from", &Observation::StringFrom)
       .def("set_from", &Observation::SetFrom)
       .def("has_string", &Observation::HasString)

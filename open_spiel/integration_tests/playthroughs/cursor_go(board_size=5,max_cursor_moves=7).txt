@@ -51,9 +51,6 @@ InformationStateString(0) = ""
 InformationStateString(1) = ""
 ObservationString(0) = "CursorGoState(komi=7.5, to_play=B, history.size()=0, cursor_moves_count=0)\n\n 5 +++++\n 4 +++++\n 3 +++++\n 2 +++++\n 1 +++++\n   ABCDE\n\nCursor: c3"
 ObservationString(1) = "CursorGoState(komi=7.5, to_play=B, history.size()=0, cursor_moves_count=0)\n\n 5 +++++\n 4 +++++\n 3 +++++\n 2 +++++\n 1 +++++\n   ABCDE\n\nCursor: c3"
-PublicObservationString() = "CursorGoState(komi=7.5, to_play=B, history.size()=0, cursor_moves_count=0)\n\n 5 +++++\n 4 +++++\n 3 +++++\n 2 +++++\n 1 +++++\n   ABCDE\n\nCursor: c3"
-PrivateObservationString(0) = ""
-PrivateObservationString(1) = ""
 ObservationTensor(0):
 ◯◯◯◯◯  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯  ◯◯◯◯◯  ◯◯◯◯◯
 ◯◯◯◯◯  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯  ◯◯◯◯◯  ◯◯◯◯◯
@@ -66,8 +63,8 @@ ObservationTensor(1):
 ◯◯◯◯◯  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◉◯◯  ◯◯◯◯◯  ◯◯◯◯◯
 ◯◯◯◯◯  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯  ◯◯◯◯◯  ◯◯◯◯◯
 ◯◯◯◯◯  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯  ◯◯◯◯◯  ◯◯◯◯◯
-Rewards() = [0.0, 0.0]
-Returns() = [0.0, 0.0]
+Rewards() = [0, 0]
+Returns() = [0, 0]
 LegalActions() = [0, 1, 2, 3, 4, 5]
 StringLegalActions() = ["Up", "Down", "Left", "Right", "Place Stone", "Pass"]
 
@@ -95,13 +92,10 @@ InformationStateString(0) = "1"
 InformationStateString(1) = "1"
 ObservationString(0) = "CursorGoState(komi=7.5, to_play=B, history.size()=1, cursor_moves_count=1)\n\n 5 +++++\n 4 +++++\n 3 +++++\n 2 +++++\n 1 +++++\n   ABCDE\n\nCursor: c2"
 ObservationString(1) = "CursorGoState(komi=7.5, to_play=B, history.size()=1, cursor_moves_count=1)\n\n 5 +++++\n 4 +++++\n 3 +++++\n 2 +++++\n 1 +++++\n   ABCDE\n\nCursor: c2"
-PublicObservationString() = "CursorGoState(komi=7.5, to_play=B, history.size()=1, cursor_moves_count=1)\n\n 5 +++++\n 4 +++++\n 3 +++++\n 2 +++++\n 1 +++++\n   ABCDE\n\nCursor: c2"
-PrivateObservationString(0) = ""
-PrivateObservationString(1) = ""
 ObservationTensor(0) = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286]
 ObservationTensor(1) = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286]
-Rewards() = [0.0, 0.0]
-Returns() = [0.0, 0.0]
+Rewards() = [0, 0]
+Returns() = [0, 0]
 LegalActions() = [0, 1, 2, 3, 4, 5]
 StringLegalActions() = ["Up", "Down", "Left", "Right", "Place Stone", "Pass"]
 
@@ -129,13 +123,10 @@ InformationStateString(0) = "1, 3"
 InformationStateString(1) = "1, 3"
 ObservationString(0) = "CursorGoState(komi=7.5, to_play=B, history.size()=2, cursor_moves_count=2)\n\n 5 +++++\n 4 +++++\n 3 +++++\n 2 +++++\n 1 +++++\n   ABCDE\n\nCursor: d2"
 ObservationString(1) = "CursorGoState(komi=7.5, to_play=B, history.size()=2, cursor_moves_count=2)\n\n 5 +++++\n 4 +++++\n 3 +++++\n 2 +++++\n 1 +++++\n   ABCDE\n\nCursor: d2"
-PublicObservationString() = "CursorGoState(komi=7.5, to_play=B, history.size()=2, cursor_moves_count=2)\n\n 5 +++++\n 4 +++++\n 3 +++++\n 2 +++++\n 1 +++++\n   ABCDE\n\nCursor: d2"
-PrivateObservationString(0) = ""
-PrivateObservationString(1) = ""
 ObservationTensor(0) = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571]
 ObservationTensor(1) = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571, 0.28571]
-Rewards() = [0.0, 0.0]
-Returns() = [0.0, 0.0]
+Rewards() = [0, 0]
+Returns() = [0, 0]
 LegalActions() = [0, 1, 2, 3, 4, 5]
 StringLegalActions() = ["Up", "Down", "Left", "Right", "Place Stone", "Pass"]
 
@@ -163,9 +154,6 @@ InformationStateString(0) = "1, 3, 4"
 InformationStateString(1) = "1, 3, 4"
 ObservationString(0) = "CursorGoState(komi=7.5, to_play=W, history.size()=3, cursor_moves_count=0)\n\n 5 +++++\n 4 +++++\n 3 +++++\n 2 +++X+\n 1 +++++\n   ABCDE\n\nCursor: c3"
 ObservationString(1) = "CursorGoState(komi=7.5, to_play=W, history.size()=3, cursor_moves_count=0)\n\n 5 +++++\n 4 +++++\n 3 +++++\n 2 +++X+\n 1 +++++\n   ABCDE\n\nCursor: c3"
-PublicObservationString() = "CursorGoState(komi=7.5, to_play=W, history.size()=3, cursor_moves_count=0)\n\n 5 +++++\n 4 +++++\n 3 +++++\n 2 +++X+\n 1 +++++\n   ABCDE\n\nCursor: c3"
-PrivateObservationString(0) = ""
-PrivateObservationString(1) = ""
 ObservationTensor(0):
 ◯◯◯◯◯  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯
 ◯◯◯◉◯  ◯◯◯◯◯  ◉◉◉◯◉  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯
@@ -178,8 +166,8 @@ ObservationTensor(1):
 ◯◯◯◯◯  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◉◯◯  ◉◉◉◉◉  ◯◯◯◯◯
 ◯◯◯◯◯  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯
 ◯◯◯◯◯  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯
-Rewards() = [0.0, 0.0]
-Returns() = [0.0, 0.0]
+Rewards() = [0, 0]
+Returns() = [0, 0]
 LegalActions() = [0, 1, 2, 3, 4, 5]
 StringLegalActions() = ["Up", "Down", "Left", "Right", "Place Stone", "Pass"]
 
@@ -207,13 +195,10 @@ InformationStateString(0) = "1, 3, 4, 0"
 InformationStateString(1) = "1, 3, 4, 0"
 ObservationString(0) = "CursorGoState(komi=7.5, to_play=W, history.size()=4, cursor_moves_count=1)\n\n 5 +++++\n 4 +++++\n 3 +++++\n 2 +++X+\n 1 +++++\n   ABCDE\n\nCursor: c4"
 ObservationString(1) = "CursorGoState(komi=7.5, to_play=W, history.size()=4, cursor_moves_count=1)\n\n 5 +++++\n 4 +++++\n 3 +++++\n 2 +++X+\n 1 +++++\n   ABCDE\n\nCursor: c4"
-PublicObservationString() = "CursorGoState(komi=7.5, to_play=W, history.size()=4, cursor_moves_count=1)\n\n 5 +++++\n 4 +++++\n 3 +++++\n 2 +++X+\n 1 +++++\n   ABCDE\n\nCursor: c4"
-PrivateObservationString(0) = ""
-PrivateObservationString(1) = ""
 ObservationTensor(0) = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286]
 ObservationTensor(1) = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14286]
-Rewards() = [0.0, 0.0]
-Returns() = [0.0, 0.0]
+Rewards() = [0, 0]
+Returns() = [0, 0]
 LegalActions() = [0, 1, 2, 3, 4, 5]
 StringLegalActions() = ["Up", "Down", "Left", "Right", "Place Stone", "Pass"]
 
@@ -257,9 +242,6 @@ InformationStateString(0) = "1, 3, 4, 0, 5, 3, 2, 3, 4"
 InformationStateString(1) = "1, 3, 4, 0, 5, 3, 2, 3, 4"
 ObservationString(0) = "CursorGoState(komi=7.5, to_play=W, history.size()=9, cursor_moves_count=0)\n\n 5 +++++\n 4 +++++\n 3 +++++\n 2 +++XX\n 1 +++++\n   ABCDE\n\nCursor: c4"
 ObservationString(1) = "CursorGoState(komi=7.5, to_play=W, history.size()=9, cursor_moves_count=0)\n\n 5 +++++\n 4 +++++\n 3 +++++\n 2 +++XX\n 1 +++++\n   ABCDE\n\nCursor: c4"
-PublicObservationString() = "CursorGoState(komi=7.5, to_play=W, history.size()=9, cursor_moves_count=0)\n\n 5 +++++\n 4 +++++\n 3 +++++\n 2 +++XX\n 1 +++++\n   ABCDE\n\nCursor: c4"
-PrivateObservationString(0) = ""
-PrivateObservationString(1) = ""
 ObservationTensor(0):
 ◯◯◯◯◯  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯
 ◯◯◯◉◉  ◯◯◯◯◯  ◉◉◉◯◯  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯
@@ -272,8 +254,8 @@ ObservationTensor(1):
 ◯◯◯◯◯  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯
 ◯◯◯◯◯  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◉◯◯  ◉◉◉◉◉  ◯◯◯◯◯
 ◯◯◯◯◯  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯
-Rewards() = [0.0, 0.0]
-Returns() = [0.0, 0.0]
+Rewards() = [0, 0]
+Returns() = [0, 0]
 LegalActions() = [0, 1, 2, 3, 4, 5]
 StringLegalActions() = ["Up", "Down", "Left", "Right", "Place Stone", "Pass"]
 
@@ -341,13 +323,10 @@ InformationStateString(0) = "1, 3, 4, 0, 5, 3, 2, 3, 4, 3, 4, 2, 1, 4, 0, 2, 2, 
 InformationStateString(1) = "1, 3, 4, 0, 5, 3, 2, 3, 4, 3, 4, 2, 1, 4, 0, 2, 2, 2, 3, 3"
 ObservationString(0) = "CursorGoState(komi=7.5, to_play=W, history.size()=20, cursor_moves_count=6)\n\n 5 +++++\n 4 +++O+\n 3 +++++\n 2 +++XX\n 1 +++X+\n   ABCDE\n\nCursor: c5"
 ObservationString(1) = "CursorGoState(komi=7.5, to_play=W, history.size()=20, cursor_moves_count=6)\n\n 5 +++++\n 4 +++O+\n 3 +++++\n 2 +++XX\n 1 +++X+\n   ABCDE\n\nCursor: c5"
-PublicObservationString() = "CursorGoState(komi=7.5, to_play=W, history.size()=20, cursor_moves_count=6)\n\n 5 +++++\n 4 +++O+\n 3 +++++\n 2 +++XX\n 1 +++X+\n   ABCDE\n\nCursor: c5"
-PrivateObservationString(0) = ""
-PrivateObservationString(1) = ""
 ObservationTensor(0) = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714]
 ObservationTensor(1) = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714, 0.85714]
-Rewards() = [0.0, 0.0]
-Returns() = [0.0, 0.0]
+Rewards() = [0, 0]
+Returns() = [0, 0]
 LegalActions() = [1, 2, 3, 4, 5]
 StringLegalActions() = ["Down", "Left", "Right", "Place Stone", "Pass"]
 
@@ -379,9 +358,6 @@ InformationStateString(0) = "1, 3, 4, 0, 5, 3, 2, 3, 4, 3, 4, 2, 1, 4, 0, 2, 2, 
 InformationStateString(1) = "1, 3, 4, 0, 5, 3, 2, 3, 4, 3, 4, 2, 1, 4, 0, 2, 2, 2, 3, 3, 3, 5"
 ObservationString(0) = "CursorGoState(komi=7.5, to_play=B, history.size()=22, cursor_moves_count=0)\n\n 5 +++++\n 4 +++O+\n 3 +++++\n 2 +++XX\n 1 +++X+\n   ABCDE\n\nCursor: d1"
 ObservationString(1) = "CursorGoState(komi=7.5, to_play=B, history.size()=22, cursor_moves_count=0)\n\n 5 +++++\n 4 +++O+\n 3 +++++\n 2 +++XX\n 1 +++X+\n   ABCDE\n\nCursor: d1"
-PublicObservationString() = "CursorGoState(komi=7.5, to_play=B, history.size()=22, cursor_moves_count=0)\n\n 5 +++++\n 4 +++O+\n 3 +++++\n 2 +++XX\n 1 +++X+\n   ABCDE\n\nCursor: d1"
-PrivateObservationString(0) = ""
-PrivateObservationString(1) = ""
 ObservationTensor(0):
 ◯◯◯◉◯  ◯◯◯◯◯  ◉◉◉◯◉  ◯◯◯◉◯  ◯◯◯◯◯  ◯◯◯◯◯
 ◯◯◯◉◉  ◯◯◯◯◯  ◉◉◉◯◯  ◯◯◯◯◯  ◯◯◯◯◯  ◯◯◯◯◯
@@ -394,8 +370,8 @@ ObservationTensor(1):
 ◯◯◯◯◯  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯  ◯◯◯◯◯  ◯◯◯◯◯
 ◯◯◯◯◯  ◯◯◯◉◯  ◉◉◉◯◉  ◯◯◯◯◯  ◯◯◯◯◯  ◯◯◯◯◯
 ◯◯◯◯◯  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯  ◯◯◯◯◯  ◯◯◯◯◯
-Rewards() = [0.0, 0.0]
-Returns() = [0.0, 0.0]
+Rewards() = [0, 0]
+Returns() = [0, 0]
 LegalActions() = [0, 2, 3, 5]
 StringLegalActions() = ["Up", "Left", "Right", "Pass"]
 
@@ -421,9 +397,6 @@ InformationStateString(0) = "1, 3, 4, 0, 5, 3, 2, 3, 4, 3, 4, 2, 1, 4, 0, 2, 2, 
 InformationStateString(1) = "1, 3, 4, 0, 5, 3, 2, 3, 4, 3, 4, 2, 1, 4, 0, 2, 2, 2, 3, 3, 3, 5, 5"
 ObservationString(0) = "CursorGoState(komi=7.5, history.size()=23)\n\n 5 +++++\n 4 +++O+\n 3 +++++\n 2 +++XX\n 1 +++X+\n   ABCDE\n"
 ObservationString(1) = "CursorGoState(komi=7.5, history.size()=23)\n\n 5 +++++\n 4 +++O+\n 3 +++++\n 2 +++XX\n 1 +++X+\n   ABCDE\n"
-PublicObservationString() = "CursorGoState(komi=7.5, history.size()=23)\n\n 5 +++++\n 4 +++O+\n 3 +++++\n 2 +++XX\n 1 +++X+\n   ABCDE\n"
-PrivateObservationString(0) = ""
-PrivateObservationString(1) = ""
 ObservationTensor(0):
 ◯◯◯◉◯  ◯◯◯◯◯  ◉◉◉◯◉  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯
 ◯◯◯◉◉  ◯◯◯◯◯  ◉◉◉◯◯  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯
@@ -436,5 +409,5 @@ ObservationTensor(1):
 ◯◯◯◯◯  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯
 ◯◯◯◯◯  ◯◯◯◉◯  ◉◉◉◯◉  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◯◯
 ◯◯◯◯◯  ◯◯◯◯◯  ◉◉◉◉◉  ◯◯◯◉◯  ◉◉◉◉◉  ◯◯◯◯◯
-Rewards() = [-1.0, 1.0]
-Returns() = [-1.0, 1.0]
+Rewards() = [-1, 1]
+Returns() = [-1, 1]

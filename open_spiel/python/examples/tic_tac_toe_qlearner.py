@@ -1,10 +1,10 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,12 +21,10 @@ After about 10**5 training episodes, the agents reach a good policy: win rate
 against random opponents is around 99% for player 0 and 92% for player 1.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import logging
 import sys
+from typing import List, Sequence
+
 from absl import app
 from absl import flags
 import numpy as np
@@ -39,11 +37,13 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_integer("num_episodes", int(5e4), "Number of train episodes.")
 flags.DEFINE_boolean(
-    "iteractive_play", True,
-    "Whether to run an interactive play with the agent after training.")
+    "interactive_play",
+    True,
+    "Whether to run an interactive play with the agent after training.",
+)
 
 
-def pretty_board(time_step):
+def pretty_board(time_step: rl_environment.TimeStep) -> np.ndarray:
   """Returns the board in `time_step` in a human readable format."""
   info_state = time_step.observations["info_state"][0]
   x_locations = np.nonzero(info_state[9:18])[0]
@@ -55,7 +55,7 @@ def pretty_board(time_step):
   return board
 
 
-def command_line_action(time_step):
+def command_line_action(time_step: rl_environment.TimeStep) -> int:
   """Gets a valid action from the user on the command line."""
   current_player = time_step.observations["current_player"]
   legal_actions = time_step.observations["legal_actions"][current_player]
@@ -71,7 +71,12 @@ def command_line_action(time_step):
   return action
 
 
-def eval_against_random_bots(env, trained_agents, random_agents, num_episodes):
+def eval_against_random_bots(
+    env: rl_environment.Environment,
+    trained_agents: List[tabular_qlearner.QLearner],
+    random_agents: List[random_agent.RandomAgent],
+    num_episodes: int,
+) -> np.ndarray:
   """Evaluates `trained_agents` against `random_agents` for `num_episodes`."""
   wins = np.zeros(2)
   for player_pos in range(2):
@@ -90,7 +95,7 @@ def eval_against_random_bots(env, trained_agents, random_agents, num_episodes):
   return wins / num_episodes
 
 
-def main(_):
+def main(_: Sequence[str]) -> None:
   game = "tic_tac_toe"
   num_players = 2
 
@@ -124,7 +129,7 @@ def main(_):
     for agent in agents:
       agent.step(time_step)
 
-  if not FLAGS.iteractive_play:
+  if not FLAGS.interactive_play:
     return
 
   # 2. Play from the command line against the trained agent.

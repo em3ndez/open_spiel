@@ -1,10 +1,10 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 """Some basic stats classes."""
 
 import math
@@ -39,8 +38,8 @@ class BasicStats(object):
       self._min = val
     if self._max < val:
       self._max = val
-    self._sum += val
-    self._sum_sq += val**2
+    self._sum += val  # pyrefly: ignore[bad-assignment]
+    self._sum_sq += val**2  # pyrefly: ignore[bad-assignment]
 
   @property
   def num(self):
@@ -79,9 +78,9 @@ class BasicStats(object):
   def as_dict(self):
     return {
         "num": self.num,
-        "min": self.min,
-        "max": self.max,
-        "avg": self.avg,
+        "min": float(self.min),
+        "max": float(self.max),
+        "avg": float(self.avg),
         "std_dev": self.std_dev,
     }
 
@@ -89,7 +88,93 @@ class BasicStats(object):
     if self.num == 0:
       return "num=0"
     return "sum: %.4f, avg: %.4f, dev: %.4f, min: %.4f, max: %.4f, num: %d" % (
-        self.sum, self.avg, self.dev, self.min, self.max, self.num)
+        self._sum, self.avg, self.std_dev, self.min, self.max, self.num)
+
+
+class SlidingWindowAccumulator(object):
+  """A utility object to compute the mean of a sliding window of values."""
+
+  def __init__(self, max_window_size: int):
+    self._max_window_size = max_window_size
+    self._index = -1
+    self._values = []
+
+  def add(self, value: float):
+    if len(self._values) < self._max_window_size:
+      self._values.append(value)
+      self._index += 1
+    else:
+      self._values[self._index] = value
+      self._index += 1
+      if self._index >= self._max_window_size:
+        self._index = 0
+
+  def mean(self):
+    if not self._values:
+      return 0
+    return sum(self._values) / len(self._values)
+
+
+class StatCounter:
+  """An object for incrementally counting statistics.
+
+  Uses Welford's online algorithm for computing variance.
+  https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
+
+  Note: everything returns 0 if there are no data points. While technically
+  incorrect, this makes workin with the StatCounter objects easier (i.e. they
+  can print values even with zero data).
+  """
+
+  def __init__(self):
+    self._sum = 0
+    self._m2 = 0
+    self._mean = 0
+    self._n = 0
+    self._max = -math.inf
+    self._min = math.inf
+
+  def add(self, value: float):
+    self._sum = self._sum + value  # pyrefly: ignore[bad-assignment]
+    self._n += 1
+
+    delta = value - self._mean
+    self._mean = self._sum / self._n  # pyrefly: ignore[bad-assignment]
+    self._m2 = self._m2 + delta*(value - self._mean)  # pyrefly: ignore[bad-assignment]
+
+    self._min = min(self._min, value)
+    self._max = max(self._max, value)
+
+  def variance(self):
+    if self._n == 0: return 0   # technically wrong but easier to work with
+    return self._m2 / self._n
+
+  def sample_variance(self):
+    if self._n < 2: return 0
+    return self._m2 / (self._n - 1)
+
+  def stddev(self):
+    return math.sqrt(self.variance())
+
+  def mean(self):
+    if self._n == 0: return 0
+    return self._mean
+
+  @property
+  def max(self):
+    return self._max
+
+  @property
+  def min(self):
+    return self._min
+
+  @property
+  def n(self):
+    return self._n
+
+  def ci95(self):
+    if self._n == 0: return 0
+    return 1.96 * self.stddev() / math.sqrt(self._n)
 
 
 class HistogramNumbered:

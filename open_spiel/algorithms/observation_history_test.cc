@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,7 +24,7 @@ void CheckKuhnPokerObservationHistory() {
   using AOH = ActionObservationHistory;
   using POH = PublicObservationHistory;
   // Use NONE constant to make it similar to the Python test.
-  constexpr absl::optional<Action> NONE = absl::nullopt;
+  constexpr std::optional<Action> NONE = std::nullopt;
 
   std::shared_ptr<const Game> game = LoadGame("kuhn_poker");
 

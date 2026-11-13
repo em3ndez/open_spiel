@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -145,17 +145,12 @@ void LeducStateDistributionTest() {
   CompareDists(dist, *CloneBeliefs(dist));
 }
 
-constexpr absl::string_view kHUNLGameString =
-    ("universal_poker(betting=limit,numPlayers=2,numRounds=4,stack=1200 "
-     "1200,blind=50 100,firstPlayer=2 "
-     "1,numSuits=4,numRanks=13,numHoleCards=2,numBoardCards=0 3 1 "
-     "1,raiseSize=100 100 100 100)");
-
 void HUNLIncrementalTest() {
   // universal_poker requires ACPC, which is an optional dependency.
   // Skip this test if the game is not registered.
-  if (!IsGameRegistered(std::string(kHUNLGameString))) { return; }
-  std::shared_ptr<const Game> game = LoadGame(std::string(kHUNLGameString));
+  if (!IsGameRegistered(std::string(HulhGameString("fullgame")))) { return; }
+  std::shared_ptr<const Game> game = LoadGame(
+      std::string(HulhGameString("fullgame")));
   std::unique_ptr<State> state = game->NewInitialState();
   state->ApplyAction(14);  // p0 card: 5h
   state->ApplyAction(46);  // p0 card: Kh5h

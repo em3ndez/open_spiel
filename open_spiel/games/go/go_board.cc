@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2019 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,10 +14,19 @@
 
 #include "open_spiel/games/go/go_board.h"
 
+#include <algorithm>
+#include <array>
+#include <cctype>
+#include <cstdint>
 #include <iomanip>
+#include <ostream>
+#include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
 
-#include "open_spiel/abseil-cpp/absl/random/uniform_int_distribution.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
 #include "open_spiel/games/chess/chess_common.h"
 #include "open_spiel/spiel_utils.h"
 
@@ -548,7 +557,7 @@ VirtualPoint GoBoard::Chain::single_liberty() const {
   return static_cast<VirtualPoint>(liberty_vertex_sum / num_pseudo_liberties);
 }
 
-std::string GoBoard::ToString() {
+std::string GoBoard::ToString() const {
   std::ostringstream stream;
   stream << *this;
   return stream.str();

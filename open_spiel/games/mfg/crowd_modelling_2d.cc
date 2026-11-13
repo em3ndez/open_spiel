@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2019 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,12 +23,12 @@
 #include <utility>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/strings/ascii.h"
-#include "open_spiel/abseil-cpp/absl/strings/numbers.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_split.h"
-#include "open_spiel/abseil-cpp/absl/strings/string_view.h"
-#include "open_spiel/abseil-cpp/absl/strings/strip.h"
-#include "open_spiel/abseil-cpp/absl/strings/substitute.h"
+#include "absl/strings/ascii.h"
+#include "absl/strings/numbers.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
+#include "absl/strings/strip.h"
+#include "absl/strings/substitute.h"
 #include "open_spiel/spiel_utils.h"
 
 namespace open_spiel {
@@ -55,6 +55,7 @@ std::vector<absl::string_view> ProcessStringParam(
 }
 
 namespace {
+inline constexpr float kEpsilon = 1e-25;
 
 // Facts about the game.
 const GameType kGameType{
@@ -81,6 +82,12 @@ const GameType kGameType{
         {"initial_distribution", GameParameter(kDefaultInitialDistribution)},
         {"initial_distribution_value",
          GameParameter(kDefaultInitialDistributionValue)},
+        {"positional_reward", GameParameter(kDefaultPositionalReward)},
+        {"positional_reward_value",
+         GameParameter(kDefaultPositionalRewardValue)},
+        {"with_congestion", GameParameter(kDefaultWithCongestion)},
+        {"noise_intensity", GameParameter(kDefaultNoiseIntensity)},
+        {"crowd_aversion_coef", GameParameter(kDefaultCrowdAversionCoef)},
     },
     /*default_loadable*/ true,
     /*provides_factored_observation_string*/ false};
@@ -147,7 +154,7 @@ int MergeXY(int xx, int yy, int size) {
   SPIEL_CHECK_LE(xx, size - 1);
   SPIEL_CHECK_GE(yy, 0);
   SPIEL_CHECK_LE(yy, size - 1);
-  return xx + yy * size;
+  return yy + xx * size;
 }
 
 bool ComparisonPair(const std::pair<int, int>& a,
@@ -174,20 +181,26 @@ std::vector<int> StringListToInts(std::vector<absl::string_view> strings,
 
 REGISTER_SPIEL_GAME(kGameType, Factory);
 
+RegisterSingleTensorObserver single_tensor(kGameType.short_name);
+
 }  // namespace
 
 CrowdModelling2dState::CrowdModelling2dState(
     std::shared_ptr<const Game> game, int size, int horizon,
     bool only_distribution_reward, const std::string& forbidden_states,
     const std::string& initial_distribution,
-    const std::string& initial_distribution_value)
+    const std::string& initial_distribution_value,
+    const std::string& positional_reward,
+    const std::string& positional_reward_value, bool with_congestion,
+    double noise_intensity, double crowd_aversion_coef)
     : State(game),
       size_(size),
       horizon_(horizon),
       only_distribution_reward_(only_distribution_reward),
+      with_congestion_(with_congestion),
+      noise_intensity_(noise_intensity),
+      crowd_aversion_coef_(crowd_aversion_coef),
       distribution_(size_ * size_, 1. / (size_ * size_)) {
-  std::vector<absl::string_view> forbidden_states_list =
-      ProcessStringParam(forbidden_states, size_);
   std::vector<absl::string_view> initial_distribution_list =
       ProcessStringParam(initial_distribution, size_);
   std::vector<absl::string_view> initial_distribution_value_list =
@@ -195,7 +208,6 @@ CrowdModelling2dState::CrowdModelling2dState(
   SPIEL_CHECK_EQ(initial_distribution_list.size(),
                  initial_distribution_value_list.size());
 
-  auto forbidden_states_pairs = StringListToPairs(forbidden_states_list);
   auto initial_distribution_pair = StringListToPairs(initial_distribution_list);
   auto initial_distribution_value_f =
       StringListToFloats(initial_distribution_value_list);
@@ -218,18 +230,38 @@ CrowdModelling2dState::CrowdModelling2dState(
   std::sort(initial_distribution_action_prob_.begin(),
             initial_distribution_action_prob_.end(), ComparisonPair);
 
-  forbidden_states_xy_.reserve(forbidden_states_pairs.size());
-  for (int i = 0; i < forbidden_states_pairs.size(); ++i) {
-    SPIEL_CHECK_GE(forbidden_states_pairs[i].first, 0);
-    SPIEL_CHECK_LE(forbidden_states_pairs[i].first, size_ - 1);
-    SPIEL_CHECK_GE(forbidden_states_pairs[i].second, 0);
-    SPIEL_CHECK_LE(forbidden_states_pairs[i].second, size_ - 1);
-
-    forbidden_states_xy_.push_back(
-        {forbidden_states_pairs[i].first, forbidden_states_pairs[i].second});
+  std::vector<absl::string_view> forbidden_states_list =
+      ProcessStringParam(forbidden_states, size_);
+  forbidden_states_xy_ = StringListToPairs(forbidden_states_list);
+  for (const auto& forbidden_state_xy : forbidden_states_xy_) {
+    SPIEL_CHECK_GE(forbidden_state_xy.first, 0);
+    SPIEL_CHECK_LE(forbidden_state_xy.first, size_ - 1);
+    SPIEL_CHECK_GE(forbidden_state_xy.second, 0);
+    SPIEL_CHECK_LE(forbidden_state_xy.second, size_ - 1);
   }
 
-  // Forbid to the initial distrinution and the forbidden states to overlap.
+  std::vector<absl::string_view> positional_reward_list =
+      ProcessStringParam(positional_reward, size_);
+  std::vector<absl::string_view> positional_reward_value_list =
+      ProcessStringParam(positional_reward_value, size_);
+  positional_reward_xy_ = StringListToPairs(positional_reward_list);
+  positional_reward_value_ = StringListToFloats(positional_reward_value_list);
+  // There should be a reward for each positional reward XY pair.
+  SPIEL_CHECK_EQ(positional_reward_xy_.size(), positional_reward_value_.size());
+  for (const auto& positional_reward_xy : positional_reward_xy_) {
+    SPIEL_CHECK_GE(positional_reward_xy.first, 0);
+    SPIEL_CHECK_LE(positional_reward_xy.first, size_ - 1);
+    SPIEL_CHECK_GE(positional_reward_xy.second, 0);
+    SPIEL_CHECK_LE(positional_reward_xy.second, size_ - 1);
+  }
+
+  if (positional_reward_xy_.empty()) {
+    // Use the center point as the reward position.
+    positional_reward_xy_.push_back({size_ / 2, size_ / 2});
+    positional_reward_value_.push_back(1.0);
+  }
+
+  // Forbid to the initial distribution and the forbidden states to overlap.
   auto forbidden_states_int = StringListToInts(forbidden_states_list, size_);
   auto initial_distribution_int =
       StringListToInts(initial_distribution_list, size_);
@@ -248,12 +280,17 @@ CrowdModelling2dState::CrowdModelling2dState(
     std::shared_ptr<const Game> game, int size, int horizon,
     bool only_distribution_reward, const std::string& forbidden_states,
     const std::string& initial_distribution,
-    const std::string& initial_distribution_value, Player current_player,
+    const std::string& initial_distribution_value,
+    const std::string& positional_reward,
+    const std::string& positional_reward_value, Player current_player,
     bool is_chance_init, int x, int y, int t, int last_action,
-    double return_value, const std::vector<double>& distribution)
+    double return_value, const std::vector<double>& distribution,
+    bool with_congestion, double noise_intensity, double crowd_aversion_coef)
     : CrowdModelling2dState(game, size, horizon, only_distribution_reward,
                             forbidden_states, initial_distribution,
-                            initial_distribution_value) {
+                            initial_distribution_value, positional_reward,
+                            positional_reward_value, with_congestion,
+                            noise_intensity, crowd_aversion_coef) {
   current_player_ = current_player;
   is_chance_init_ = is_chance_init;
   x_ = x;
@@ -263,19 +300,60 @@ CrowdModelling2dState::CrowdModelling2dState(
   return_value_ = return_value;
 }
 
+std::vector<Action> CrowdModelling2dState::LegalPlayerActions() const {
+  std::vector<Action> legal_actions;
+  legal_actions.reserve(kNumActions);
+  for (Action action = 0; action < kNumActions; ++action) {
+    if (!IsForbidden(action)) {
+      legal_actions.push_back(action);
+    }
+  }
+  return legal_actions;
+}
+
 std::vector<Action> CrowdModelling2dState::LegalActions() const {
   if (IsTerminal()) return {};
   if (IsChanceNode()) return LegalChanceOutcomes();
   if (IsMeanFieldNode()) return {};
   SPIEL_CHECK_TRUE(IsPlayerNode());
-  return {0, 1, 2, 3, 4};
+  return LegalPlayerActions();
 }
 
 ActionsAndProbs CrowdModelling2dState::ChanceOutcomes() const {
   if (is_chance_init_) {
     return initial_distribution_action_prob_;
   }
-  return {{0, 1. / 5}, {1, 1. / 5}, {2, 1. / 5}, {3, 1. / 5}, {4, 1. / 5}};
+  const std::vector<Action> legal_actions = LegalPlayerActions();
+  ActionsAndProbs outcomes;
+  if (legal_actions.empty()) {
+    return outcomes;
+  }
+  // Neutral action will always be present in the legal actions.
+  const double prob = noise_intensity_ / legal_actions.size();
+  outcomes.reserve(legal_actions.size());
+  for (const Action action : legal_actions) {
+    if (action == kNeutralAction) {
+      outcomes.emplace_back(action, 1.0 - noise_intensity_ + prob);
+    } else {
+      outcomes.emplace_back(action, prob);
+    }
+  }
+  return outcomes;
+}
+
+bool CrowdModelling2dState::IsForbidden(Action action) const {
+  int xx = (x_ + kActionToMoveX.at(action) + size_) % size_;
+  int yy = (y_ + kActionToMoveY.at(action) + size_) % size_;
+  return IsForbiddenPosition(xx, yy);
+}
+
+bool CrowdModelling2dState::IsForbiddenPosition(int x, int y) const {
+  for (const auto& forbidden_xy : forbidden_states_xy_) {
+    if (x == forbidden_xy.first && y == forbidden_xy.second) {
+      return true;
+    }
+  }
+  return false;
 }
 
 void CrowdModelling2dState::DoApplyAction(Action action) {
@@ -296,24 +374,16 @@ void CrowdModelling2dState::DoApplyAction(Action action) {
     xx = (x_ + kActionToMoveX.at(action) + size_) % size_;
     yy = (y_ + kActionToMoveY.at(action) + size_) % size_;
     ++t_;
-    current_player_ = 0;
+    current_player_ = kMeanFieldPlayerId;
   } else {
     SPIEL_CHECK_EQ(current_player_, 0);
     xx = (x_ + kActionToMoveX.at(action) + size_) % size_;
     yy = (y_ + kActionToMoveY.at(action) + size_) % size_;
     last_action_ = action;
-    current_player_ = kMeanFieldPlayerId;
-  }
-  // Check if the new (xx,yy) is forbidden.
-  bool is_next_state_forbidden = false;
-  for (const auto& forbidden_xy : forbidden_states_xy_) {
-    if (xx == forbidden_xy.first && yy == forbidden_xy.second) {
-      is_next_state_forbidden = true;
-      break;
-    }
+    current_player_ = kChancePlayerId;
   }
   // Assign the new (x,y) position if it isn't forbidden.
-  if (!is_next_state_forbidden || is_chance_init_) {
+  if (!IsForbiddenPosition(xx, yy) || is_chance_init_) {
     x_ = xx;
     y_ = yy;
   }
@@ -333,7 +403,7 @@ std::vector<std::string> CrowdModelling2dState::DistributionSupport() {
   support.reserve(size_ * size_);
   for (int x = 0; x < size_; ++x) {
     for (int y = 0; y < size_; ++y) {
-      support.push_back(StateToString(x, y, t_, 0, false));
+      support.push_back(StateToString(x, y, t_, kMeanFieldPlayerId, false));
     }
   }
   return support;
@@ -344,7 +414,7 @@ void CrowdModelling2dState::UpdateDistribution(
   SPIEL_CHECK_EQ(current_player_, kMeanFieldPlayerId);
   SPIEL_CHECK_EQ(distribution.size(), size_ * size_);
   distribution_ = distribution;
-  current_player_ = kChancePlayerId;
+  current_player_ = kDefaultPlayerId;
 }
 
 bool CrowdModelling2dState::IsTerminal() const { return t_ >= horizon_; }
@@ -353,16 +423,28 @@ std::vector<double> CrowdModelling2dState::Rewards() const {
   if (current_player_ != 0) {
     return {0.};
   }
-  double r_mu = -std::log(distribution_[MergeXY(x_, y_, size_)]);
+  // Distribution-based reward
+  double r_mu = -crowd_aversion_coef_ *
+                std::log(distribution_[MergeXY(x_, y_, size_)] + kEpsilon);
   if (only_distribution_reward_) {
     return {r_mu};
   }
-  double r_x = 1 - 1.0 * std::abs(x_ - size_ / 2) / (size_ / 2);
-  double r_y = 1 - 1.0 * std::abs(y_ - size_ / 2) / (size_ / 2);
+  // Positional reward
+  double r_x = 1;
+  double r_y = 1;
+  for (int i = 0; i < positional_reward_xy_.size(); ++i) {
+    double val_r = 2.0 * positional_reward_value_[i] / size_;
+    r_x -= val_r * std::abs(x_ - positional_reward_xy_[i].first);
+    r_y -= val_r * std::abs(y_ - positional_reward_xy_[i].second);
+  }
   double r_a = -1.0 *
                (std::abs(kActionToMoveX.at(last_action_)) +
                 std::abs(kActionToMoveY.at(last_action_))) /
                size_;
+  if (with_congestion_) {
+    // Congestion effect: higher penalty when moving in a high-density area
+    r_a *= distribution_[MergeXY(x_, y_, size_)];
+  }
   return {r_x + r_y + r_a + r_mu};
 }
 
@@ -390,17 +472,23 @@ void CrowdModelling2dState::ObservationTensor(Player player,
                                               absl::Span<float> values) const {
   SPIEL_CHECK_GE(player, 0);
   SPIEL_CHECK_LT(player, num_players_);
-  SPIEL_CHECK_EQ(values.size(), 2 * size_ + horizon_);
-  SPIEL_CHECK_GE(x_, 0);
+  SPIEL_CHECK_EQ(values.size(), 2 * size_ + horizon_ + 1);
   SPIEL_CHECK_LT(x_, size_);
-  SPIEL_CHECK_GE(y_, 0);
   SPIEL_CHECK_LT(y_, size_);
   SPIEL_CHECK_GE(t_, 0);
-  SPIEL_CHECK_LT(t_, horizon_);
+  // Allow t_ == horizon_.
+  SPIEL_CHECK_LE(t_, horizon_);
   std::fill(values.begin(), values.end(), 0.);
-  values[x_] = 1.;
-  values[y_ + size_] = 1.;
-  values[size_ + t_] = 1.;
+  if (x_ >= 0 && y_ >= 0) {
+    values[x_] = 1.;
+    values[y_ + size_] = 1.;
+  } else {
+    // x_ and y_ equal -1 for the initial (blank) state, don't set any position
+    // bit in that case.
+    SPIEL_CHECK_EQ(x_, -1);
+    SPIEL_CHECK_EQ(y_, -1);
+  }
+  values[2 * size_ + t_] = 1.;
 }
 
 std::unique_ptr<State> CrowdModelling2dState::Clone() const {
@@ -419,17 +507,28 @@ CrowdModelling2dGame::CrowdModelling2dGame(const GameParameters& params)
     : Game(kGameType, params),
       size_(ParameterValue<int>("size", kDefaultSize)),
       horizon_(ParameterValue<int>("horizon", kDefaultHorizon)),
-      only_distribution_reward_(ParameterValue<int>(
+      only_distribution_reward_(ParameterValue<bool>(
           "only_distribution_reward", kDefaultOnlyDistributionReward)),
       forbidden_states_(ParameterValue<std::string>("forbidden_states",
                                                     kDefaultForbiddenStates)),
       initial_distribution_(ParameterValue<std::string>(
           "initial_distribution", kDefaultInitialDistribution)),
       initial_distribution_value_(ParameterValue<std::string>(
-          "initial_distribution_value", kDefaultInitialDistributionValue)) {}
+          "initial_distribution_value", kDefaultInitialDistributionValue)),
+      positional_reward_(ParameterValue<std::string>("positional_reward",
+                                                     kDefaultPositionalReward)),
+      positional_reward_value_(ParameterValue<std::string>(
+          "positional_reward_value", kDefaultPositionalRewardValue)),
+      with_congestion_(
+          ParameterValue<bool>("with_congestion", kDefaultWithCongestion)),
+      noise_intensity_(
+          ParameterValue<double>("noise_intensity", kDefaultNoiseIntensity)),
+      crowd_aversion_coef_(ParameterValue<double>("crowd_aversion_coef",
+                                                  kDefaultCrowdAversionCoef)) {}
 
 std::vector<int> CrowdModelling2dGame::ObservationTensorShape() const {
-  return {2 * ParameterValue<int>("size") + ParameterValue<int>("horizon")};
+  // +1 to allow for t_ == horizon.
+  return {2 * ParameterValue<int>("size") + ParameterValue<int>("horizon") + 1};
 }
 
 std::unique_ptr<State> CrowdModelling2dGame::DeserializeState(
@@ -464,11 +563,12 @@ std::unique_ptr<State> CrowdModelling2dGame::DeserializeState(
     SPIEL_CHECK_TRUE(absl::SimpleAtod(v, &parsed_weight));
     distribution.push_back(parsed_weight);
   }
-  return absl::make_unique<CrowdModelling2dState>(
+  return std::make_unique<CrowdModelling2dState>(
       shared_from_this(), size_, horizon_, only_distribution_reward_,
       forbidden_states_, initial_distribution_, initial_distribution_value_,
-      current_player, is_chance_init, x, y, t, last_action, return_value,
-      distribution);
+      positional_reward_, positional_reward_value_, current_player,
+      is_chance_init, x, y, t, last_action, return_value, distribution,
+      with_congestion_, noise_intensity_, crowd_aversion_coef_);
 }
 
 }  // namespace crowd_modelling_2d

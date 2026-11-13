@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,22 +16,22 @@
 
 #include <memory>
 
-#include "open_spiel/abseil-cpp/absl/algorithm/container.h"
-#include "open_spiel/abseil-cpp/absl/memory/memory.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
-#include "open_spiel/abseil-cpp/absl/strings/string_view.h"
+#include "absl/algorithm/container.h"
+#include "absl/memory/memory.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_utils.h"
 
 namespace open_spiel {
 
-DimensionedSpan ContiguousAllocator::Get(
-    absl::string_view name, const absl::InlinedVector<int, 4>& shape) {
+SpanTensor ContiguousAllocator::Get(absl::string_view name,
+                                    const absl::InlinedVector<int, 4>& shape) {
   const int size = absl::c_accumulate(shape, 1, std::multiplies<int>());
   SPIEL_DCHECK_LE(offset_, data_.size());
-  auto piece = data_.subspan(offset_, size);
+  auto buffer = data_.subspan(offset_, size);
   offset_ += size;
-  return DimensionedSpan(piece, shape);
+  return SpanTensor(SpanTensorInfo(name, shape), buffer);
 }
 
 namespace {
@@ -51,7 +51,7 @@ class InformationStateObserver : public Observer {
   void WriteTensor(const State& state, int player,
                    Allocator* allocator) const override {
     auto tensor = allocator->Get("info_state", shape_);
-    state.InformationStateTensor(player, tensor.data);
+    state.InformationStateTensor(player, tensor.data());
   }
 
   std::string StringFrom(const State& state, int player) const override {
@@ -80,7 +80,7 @@ class DefaultObserver : public Observer {
                    Allocator* allocator) const override {
     SPIEL_CHECK_TRUE(has_tensor_);
     auto tensor = allocator->Get("observation", shape_);
-    state.ObservationTensor(player, tensor.data);
+    state.ObservationTensor(player, tensor.data());
   }
 
   std::string StringFrom(const State& state, int player) const override {
@@ -123,7 +123,7 @@ class NoPrivateObserver : public Observer {
 }  // namespace
 
 std::shared_ptr<Observer> Game::MakeRegisteredObserver(
-    absl::optional<IIGObservationType> iig_obs_type,
+    std::optional<IIGObservationType> iig_obs_type,
     const ObservationParams& params) const {
   auto iter = params.find("name");
   if (iter == params.end()) {
@@ -135,17 +135,17 @@ std::shared_ptr<Observer> Game::MakeRegisteredObserver(
 }
 
 std::shared_ptr<Observer> Game::MakeBuiltInObserver(
-    absl::optional<IIGObservationType> iig_obs_type) const {
-  if (!iig_obs_type) return absl::make_unique<DefaultObserver>(*this);
+    std::optional<IIGObservationType> iig_obs_type) const {
+  if (!iig_obs_type) {
+    if (game_type_.provides_observation()) {
+      return std::make_unique<DefaultObserver>(*this);
+    } else {
+      return nullptr;
+    }
+  }
 
   const bool perfect_info_game =
       game_type_.information == GameType::Information::kPerfectInformation;
-  const bool provides_information_state =
-      game_type_.provides_information_state_tensor ||
-      game_type_.provides_information_state_string;
-  const bool provides_observation =
-      game_type_.provides_information_state_tensor ||
-      game_type_.provides_information_state_string;
 
   // Perfect information games can provide public information regardless
   // of requested PrivateInfoType (as they have no private information).
@@ -153,31 +153,31 @@ std::shared_ptr<Observer> Game::MakeBuiltInObserver(
     // Handle the dummy case, where we do not use any public information.
     // The game will just have empty private observations.
     if (!iig_obs_type->public_info)
-      return absl::make_unique<NoPrivateObserver>(*this);
-    if (provides_information_state && iig_obs_type->perfect_recall)
-      return absl::make_unique<InformationStateObserver>(*this);
-    if (provides_observation && !iig_obs_type->perfect_recall)
-      return absl::make_unique<DefaultObserver>(*this);
+      return std::make_unique<NoPrivateObserver>(*this);
+    if (game_type_.provides_information_state() && iig_obs_type->perfect_recall)
+      return std::make_unique<InformationStateObserver>(*this);
+    if (game_type_.provides_observation() && !iig_obs_type->perfect_recall)
+      return std::make_unique<DefaultObserver>(*this);
   }
 
   // TODO(author11) Reinstate this check
   // SPIEL_CHECK_EQ(GetType().information,
   //                GameType::Information::kImperfectInformation);
   if (iig_obs_type.value() == kDefaultObsType) {
-    if (provides_observation) return absl::make_unique<DefaultObserver>(*this);
+    if (game_type_.provides_observation())
+      return std::make_unique<DefaultObserver>(*this);
   }
   if (iig_obs_type.value() == kInfoStateObsType) {
-    if (provides_information_state)
-      return absl::make_unique<InformationStateObserver>(*this);
+    if (game_type_.provides_information_state())
+      return std::make_unique<InformationStateObserver>(*this);
   }
-  SpielFatalError(absl::StrCat("Requested Observer type not available: ",
-                               IIGObservationTypeToString(*iig_obs_type)));
+  return nullptr;
 }
 
 std::shared_ptr<Observer> Game::MakeObserver(
-    absl::optional<IIGObservationType> iig_obs_type,
+    std::optional<IIGObservationType> iig_obs_type,
     const ObservationParams& params) const {
-  // This implementation falls back to the orginal information state and
+  // This implementation falls back to the original information state and
   // observation methods in case of empty parameters and otherwise creates
   // a registered observer based on its name.
   // New games can register observers which can be selected by name, or override
@@ -189,21 +189,25 @@ std::shared_ptr<Observer> Game::MakeObserver(
   }
 }
 
-DimensionedSpan TrackingVectorAllocator::Get(absl::string_view name,
-                    const absl::InlinedVector<int, 4>& shape) {
+SpanTensor TrackingVectorAllocator::Get(
+    absl::string_view name, const absl::InlinedVector<int, 4>& shape) {
   SPIEL_DCHECK_TRUE(IsNameUnique(name));
-  tensors.push_back(
-      TensorInfo{std::string(name), {shape.begin(), shape.end()}});
-  const int begin_size = data.size();
-  const int size = absl::c_accumulate(shape, 1, std::multiplies<int>());
-  data.resize(begin_size + size);
-  return DimensionedSpan(absl::MakeSpan(data).subspan(begin_size, size),
-                         shape);
+
+  SpanTensorInfo info(name, shape);
+  tensors_info_.push_back(info);
+
+  const int offset = data_.size();
+  const int size = info.size();
+  data_.resize(offset + size);
+  return SpanTensor(std::move(info),
+                    absl::MakeSpan(data_).subspan(offset, size));
 }
 
-bool TrackingVectorAllocator::IsNameUnique(absl::string_view name) {
-  for (const TensorInfo& tensor : tensors) {
-    if (tensor.name == name) return false;
+bool TrackingVectorAllocator::IsNameUnique(absl::string_view name) const {
+  for (const SpanTensorInfo& info : tensors_info_) {
+    if (info.name() == name) {
+      return false;
+    }
   }
   return true;
 }
@@ -215,14 +219,26 @@ Observation::Observation(const Game& game, std::shared_ptr<Observer> observer)
     auto state = game.NewInitialState();
     TrackingVectorAllocator allocator;
     observer_->WriteTensor(*state, /*player=*/0, &allocator);
-    buffer_ = std::move(allocator.data);
-    tensors_ = std::move(allocator.tensors);
+    buffer_ = allocator.data();
+    tensors_info_ = allocator.tensors_info();
   }
 }
 
 void Observation::SetFrom(const State& state, int player) {
   ContiguousAllocator allocator(absl::MakeSpan(buffer_));
   observer_->WriteTensor(state, player, &allocator);
+}
+
+std::vector<SpanTensor> Observation::tensors() {
+  std::vector<SpanTensor> result;
+  result.reserve(tensors_info_.size());
+  int offset = 0;
+  for (const SpanTensorInfo& info : tensors_info_) {
+    const int size = info.size();
+    result.emplace_back(info, absl::MakeSpan(buffer_).subspan(offset, size));
+    offset += size;
+  }
+  return result;
 }
 
 // We may in the future support multiple compression schemes.
@@ -255,7 +271,7 @@ struct BinaryCompress {
   static void Decompress(absl::string_view compressed,
                          absl::Span<float> buffer) {
     const int num_bytes = (buffer.size() + kBitsPerByte - 1) / kBitsPerByte;
-    absl::c_fill(buffer, 0);
+    absl::c_fill(buffer, 0.0f);
     SPIEL_CHECK_EQ(compressed.size(), num_bytes + kNumHeaderBytes);
     for (int byte = 0; byte < num_bytes; ++byte) {
       for (int bit = 0; bit < kBitsPerByte; ++bit) {
@@ -318,8 +334,8 @@ ObserverRegisterer::ObserverRegisterer(const std::string& game_name,
 }
 
 void ObserverRegisterer::RegisterObserver(const std::string& game_name,
-                                     const std::string& observer_name,
-                                     CreateFunc creator) {
+                                          const std::string& observer_name,
+                                          CreateFunc creator) {
   auto key = std::pair(game_name, observer_name);
   if (observers().find(key) != observers().end()) {
     SpielFatalError(absl::StrCat("Duplicate observer '", key.second, "'",
@@ -328,10 +344,21 @@ void ObserverRegisterer::RegisterObserver(const std::string& game_name,
   observers()[key] = creator;
 }
 
+std::shared_ptr<Observer> MakeSingleTensorObserver(
+    const Game& game, std::optional<IIGObservationType> iig_obs_type,
+    const GameParameters& params) {
+  return std::shared_ptr<Observer>(game.MakeBuiltInObserver(iig_obs_type));
+}
+
+RegisterSingleTensorObserver::RegisterSingleTensorObserver(
+    const std::string& game_name) {
+  ObserverRegisterer single_tensor(game_name, "single_tensor",
+                                   MakeSingleTensorObserver);
+}
+
 std::shared_ptr<Observer> ObserverRegisterer::CreateByName(
-    const std::string& observer_name,
-    const Game& game,
-    absl::optional<IIGObservationType> iig_obs_type,
+    const std::string& observer_name, const Game& game,
+    std::optional<IIGObservationType> iig_obs_type,
     const ObservationParams& params) {
   auto key = std::pair(game.GetType().short_name, observer_name);
   auto it = observers().find(key);
@@ -346,17 +373,17 @@ std::vector<float> TensorFromObserver(const State& state,
                                       const Observer& observer) {
   TrackingVectorAllocator allocator;
   observer.WriteTensor(state, /*player=*/state.CurrentPlayer(), &allocator);
-  return std::move(allocator.data);
+  return std::move(allocator.data());
 }
 
 std::vector<int> ObserverTensorShape(const State& state,
                                      const Observer& observer) {
   TrackingVectorAllocator allocator;
   observer.WriteTensor(state, /*player=*/0, &allocator);
-  if (allocator.tensors.size() == 1) {
-    return allocator.tensors.front().shape;
+  if (allocator.tensors_info().size() == 1) {
+    return allocator.tensors_info().front().vector_shape();
   } else {
-    return {static_cast<int>(allocator.data.size())};
+    return {static_cast<int>(allocator.data().size())};
   }
 }
 

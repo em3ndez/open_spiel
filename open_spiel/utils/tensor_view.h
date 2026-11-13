@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,7 +19,7 @@
 #include <numeric>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/types/span.h"
+#include "absl/types/span.h"
 #include "open_spiel/spiel_utils.h"
 
 namespace open_spiel {
@@ -35,7 +35,7 @@ class TensorView {
                        const std::array<int, Rank>& shape, bool reset)
       : values_(values), shape_(shape) {
     SPIEL_CHECK_EQ(size(), values_.size());
-    if (reset) std::fill(values.begin(), values.end(), 0);
+    if (reset) std::fill(values.begin(), values.end(), 0.0f);
   }
 
   constexpr int size() const {
@@ -43,7 +43,7 @@ class TensorView {
                            std::multiplies<int>());
   }
 
-  void clear() { std::fill(values_.begin(), values_.end(), 0.0); }
+  void clear() { std::fill(values_.begin(), values_.end(), 0.0f); }
 
   constexpr int index(const std::array<int, Rank>& args) const {
     int ind = 0;

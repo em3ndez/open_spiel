@@ -1,10 +1,10 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 """DQN as a policy.
 
 Treating RL Oracles as policies allows us to streamline their use with tabular
@@ -22,8 +21,10 @@ different types of oracles.
 
 from open_spiel.python import policy
 from open_spiel.python import rl_environment
-from open_spiel.python.algorithms import dqn
-from open_spiel.python.algorithms import policy_gradient
+from open_spiel.python.jax import dqn
+from open_spiel.python.jax import policy_gradient
+
+# pylint: disable=protected-access
 
 
 def rl_policy_factory(rl_class):
@@ -134,8 +135,18 @@ def rl_policy_factory(rl_class):
       super(RLPolicy, copied_object).__init__(self.game, self.player_ids)
       setattr(copied_object, "_rl_class", self._rl_class)
       setattr(copied_object, "_obs", self._obs)
-      setattr(copied_object, "_policy",
-              self._policy.copy_with_noise(sigma=sigma))
+      if hasattr(self._policy, "copy_with_noise"):
+        setattr(
+            copied_object, "_policy", self._policy.copy_with_noise(sigma=sigma)
+        )
+      else:
+        # Make a new one from scratch
+        _ = self._policy._kwargs.pop("self", None)
+        setattr(
+            copied_object,
+            "_policy",
+            self._policy.__class__(**self._policy._kwargs),
+        )
       setattr(copied_object, "_env", self._env)
       copied_object.unfreeze()
 

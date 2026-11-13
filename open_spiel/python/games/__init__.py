@@ -1,10 +1,10 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,6 +26,29 @@ pyspiel.register_game(_GAME_TYPE, KuhnPokerGame)
 ```
 """
 
+from open_spiel.python.games import ant_foraging
+from open_spiel.python.games import block_dominoes
+from open_spiel.python.games import chat_game
+from open_spiel.python.games import dynamic_routing
+from open_spiel.python.games import hangman
 from open_spiel.python.games import iterated_prisoners_dilemma
 from open_spiel.python.games import kuhn_poker
+from open_spiel.python.games import liars_poker
+from open_spiel.python.games import pursuit_evasion
+from open_spiel.python.games import team_dominoes
 from open_spiel.python.games import tic_tac_toe
+
+# Optional game modules with additional dependencies
+try:
+  # pylint: disable=g-import-not-at-top
+  from open_spiel.python.games import pokerkit_wrapper
+  # repeated_pokerkit depends on pokerkit_wrapper; if the former cannot be
+  # imported there is no point importing the latter.
+  from open_spiel.python.games import repeated_pokerkit
+  # pylint: enable=g-import-not-at-top
+except ImportError:
+  # Initialize to None on failure to ensure that this won't trigger NameError
+  # later if someone tries to check for the module's presence.
+  pokerkit_wrapper = None
+  repeated_pokerkit = None
+  pass

@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,8 +20,8 @@
 #include <string>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_join.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "open_spiel/simultaneous_move_game.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_utils.h"
@@ -57,6 +57,18 @@ class NFGState : public SimMoveState {
     return info_state;
   }
 
+  std::string ObservationString(Player player) const override {
+    SPIEL_CHECK_GE(player, 0);
+    SPIEL_CHECK_LT(player, num_players_);
+    std::string obs_str;
+    if (!IsTerminal()) {
+      absl::StrAppend(&obs_str, "Non-terminal");
+    } else {
+      absl::StrAppend(&obs_str, "Terminal. History string: ", HistoryString());
+    }
+    return obs_str;
+  }
+
   std::string ToString() const override {
     std::string result = "Normal form game default NFGState::ToString. ";
     if (IsTerminal()) {
@@ -79,6 +91,18 @@ class NFGState : public SimMoveState {
       values[0] = 0;
     }
   }
+
+  void ObservationTensor(Player player,
+                         absl::Span<float> values) const override {
+    SPIEL_CHECK_GE(player, 0);
+    SPIEL_CHECK_LT(player, num_players_);
+    SPIEL_CHECK_EQ(values.size(), 1);
+    if (IsTerminal()) {
+      values[0] = 1;
+    } else {
+      values[0] = 0;
+    }
+  }
 };
 
 class NormalFormGame : public SimMoveGame {
@@ -87,6 +111,7 @@ class NormalFormGame : public SimMoveGame {
   std::vector<int> InformationStateTensorShape() const override {
     return {1};
   }
+  std::vector<int> ObservationTensorShape() const override { return {1}; }
 
   // Game lasts one turn.
   int MaxGameLength() const override { return 1; }
@@ -107,16 +132,16 @@ class NormalFormGame : public SimMoveGame {
     return GetUtilities(joint_action)[player];
   }
 
-  double UtilitySum() const override {
+  absl::optional<double> UtilitySum() const override {
     if (game_type_.utility == GameType::Utility::kZeroSum) {
       return 0.0;
     } else if (game_type_.utility == GameType::Utility::kConstantSum) {
       std::vector<Action> joint_action(NumPlayers(), 0);
       std::vector<double> utilities = GetUtilities(joint_action);
       return std::accumulate(utilities.begin(), utilities.end(), 0.0);
+    } else {
+      return absl::nullopt;
     }
-    SpielFatalError(absl::StrCat("No appropriate UtilitySum value for ",
-                                 "general-sum or identical utility games."));
   }
 
  protected:

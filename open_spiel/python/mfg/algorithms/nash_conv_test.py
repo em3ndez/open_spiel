@@ -1,10 +1,10 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,7 +30,7 @@ class BestResponseTest(absltest.TestCase):
     uniform_policy = policy.UniformRandomPolicy(game)
     nash_conv_fp = nash_conv.NashConv(game, uniform_policy)
 
-    self.assertAlmostEqual(nash_conv_fp.nash_conv(), [3.1700299751054217])
+    self.assertAlmostEqual(nash_conv_fp.nash_conv(), 2.8135365543870385)
 
   def test_cpp_game(self):
     """Checks if the NashConv is consistent through time."""
@@ -38,7 +38,7 @@ class BestResponseTest(absltest.TestCase):
     uniform_policy = policy.UniformRandomPolicy(game)
     nash_conv_fp = nash_conv.NashConv(game, uniform_policy)
 
-    self.assertAlmostEqual(nash_conv_fp.nash_conv(), [3.1700299751054217])
+    self.assertAlmostEqual(nash_conv_fp.nash_conv(), 2.8135365543870385)
 
 
 if __name__ == "__main__":

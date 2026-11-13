@@ -18,8 +18,16 @@ read -r -d '' TESTSCRIPT << EOT
 import jax
 import jaxlib
 import haiku
+import flax
 import chex
 import optax
+import mctx
+import orbax.checkpoint
+import etils
+import yaml
+import ml_dtypes
+import pytest
+import flax
 print(jax.__version__)
 EOT
 

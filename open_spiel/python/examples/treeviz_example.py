@@ -1,10 +1,10 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,9 +14,8 @@
 
 """Game tree visualization example."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+import os
+import tempfile
 
 from absl import app
 from absl import flags
@@ -27,8 +26,11 @@ from open_spiel.python.visualizations import treeviz
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("game", "kuhn_poker", "Name of the game")
-flags.DEFINE_string("out", "/tmp/gametree.png", "Name of output file, e.g., "
-                    "[*.png|*.pdf].")
+flags.DEFINE_string(
+    "out",
+    os.path.join(tempfile.gettempdir(), "gametree.png"),
+    "Name of output file, e.g., [*.png|*.pdf].",
+)
 flags.DEFINE_enum("prog", "dot", ["dot", "neato", "circo"], "Graphviz layout.")
 flags.DEFINE_boolean("group_infosets", False, "Whether to group infosets.")
 flags.DEFINE_boolean("group_terminal", False,

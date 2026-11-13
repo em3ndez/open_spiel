@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,8 +17,8 @@
 #include <cstdint>
 #include <memory>
 
-#include "open_spiel/abseil-cpp/absl/hash/hash.h"
-#include "open_spiel/abseil-cpp/absl/time/time.h"
+#include "absl/hash/hash.h"
+#include "absl/time/time.h"
 #include "open_spiel/utils/stats.h"
 
 namespace open_spiel {
@@ -77,7 +77,11 @@ std::vector<double> VPNetEvaluator::Evaluate(const State& state) {
 }
 
 open_spiel::ActionsAndProbs VPNetEvaluator::Prior(const State& state) {
-  return Inference(state).policy;
+  if (state.IsChanceNode()) {
+    return state.ChanceOutcomes();
+  } else {
+    return Inference(state).policy;
+  }
 }
 
 VPNetModel::InferenceOutputs VPNetEvaluator::Inference(const State& state) {
@@ -119,8 +123,8 @@ void VPNetEvaluator::Runner() {
     {
       // Only one thread at a time should be listening to the queue to maximize
       // batch size and minimize latency.
-      absl::MutexLock lock(&inference_queue_m_);
-      absl::Time deadline = absl::Now() + absl::InfiniteDuration();
+      absl::MutexLock lock(inference_queue_m_);
+      absl::Time deadline = absl::InfiniteFuture();
       for (int i = 0; i < batch_size_; ++i) {
         absl::optional<QueueItem> item = queue_.Pop(deadline);
         if (!item) {  // Hit the deadline.
@@ -139,7 +143,7 @@ void VPNetEvaluator::Runner() {
     }
 
     {
-      absl::MutexLock lock(&stats_m_);
+      absl::MutexLock lock(stats_m_);
       batch_size_stats_.Add(inputs.size());
       batch_size_hist_.Add(inputs.size());
     }
@@ -155,18 +159,18 @@ void VPNetEvaluator::Runner() {
 }
 
 void VPNetEvaluator::ResetBatchSizeStats() {
-  absl::MutexLock lock(&stats_m_);
+  absl::MutexLock lock(stats_m_);
   batch_size_stats_.Reset();
   batch_size_hist_.Reset();
 }
 
 open_spiel::BasicStats VPNetEvaluator::BatchSizeStats() {
-  absl::MutexLock lock(&stats_m_);
+  absl::MutexLock lock(stats_m_);
   return batch_size_stats_;
 }
 
 open_spiel::HistogramNumbered VPNetEvaluator::BatchSizeHistogram() {
-  absl::MutexLock lock(&stats_m_);
+  absl::MutexLock lock(stats_m_);
   return batch_size_hist_;
 }
 

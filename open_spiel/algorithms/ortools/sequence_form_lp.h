@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,7 +23,7 @@
 
 #include "open_spiel/algorithms/infostate_tree.h"
 #include "open_spiel/policy.h"
-#include "ortools/linear_solver/linear_solver.h"
+#include "third_party/ortools/ortools/linear_solver/linear_solver.h"
 
 // An implementation of a sequence-form linear program for computing Nash
 // equilibria in sequential games, based on [1]. The implementation constructs

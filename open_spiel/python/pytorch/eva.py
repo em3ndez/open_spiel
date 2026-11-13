@@ -1,10 +1,10 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,10 +23,6 @@ non-parametric model is used to compute the policy.
 """
 
 # pylint: disable=protected-access
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import collections
 import copy
@@ -169,7 +165,8 @@ class EVAAgent(object):
         epsilon_end=0.1,
         epsilon_decay_duration=int(1e6))
     # Initialize Value Buffers - Fetch Replay buffers from agents.
-    self._value_buffer = QueryableFixedSizeRingBuffer(memory_capacity)
+    self._memory_capacity = memory_capacity
+    self._value_buffer = None
     self._replay_buffer = self._agent.replay_buffer
 
     # Initialize non-parametric & EVA Q-values.
@@ -193,7 +190,11 @@ class EVAAgent(object):
       value: (float) Value associated with state embeding.
     """
     transition = ValueBufferElement(embedding=infostate_embedding, value=value)
-    self._value_buffer.add(transition)
+    if self._value_buffer is None:
+      self._value_buffer = QueryableFixedSizeRingBuffer.init(
+          self._memory_capacity, transition
+      )
+    self._value_buffer.append(transition)
 
   def _add_transition_replay(self, infostate_embedding, time_step):
     """Adds the new transition using `time_step` to the replay buffer.
@@ -219,7 +220,7 @@ class EVAAgent(object):
         next_info_state=time_step.observations["info_state"][self.player_id],
         is_final_step=float(time_step.last()),
         legal_actions_mask=legal_actions_mask)
-    self._replay_buffer.add(transition)
+    self._replay_buffer.append(transition)
 
   def step(self, time_step, is_evaluation=False):
     """Returns the action to be taken and updates the value functions.
@@ -254,6 +255,7 @@ class EVAAgent(object):
       infostate_embedding = self._embedding_network(
           self._info_state).detach()[0]
 
+      assert self._value_buffer
       neighbours_value = self._value_buffer.knn(infostate_embedding,
                                                 MEM_KEY_NAME,
                                                 self._num_neighbours, 1)

@@ -1,10 +1,10 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,11 +22,9 @@ One iteration of CFR consists of:
 The average policy is what converges to a Nash Equilibrium.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import collections
+from typing import Callable, Dict, List, Optional
+
 import attr
 import numpy as np
 
@@ -38,17 +36,23 @@ import pyspiel
 class _InfoStateNode(object):
   """An object wrapping values associated to an information state."""
   # The list of the legal actions.
-  legal_actions = attr.ib()
-  index_in_tabular_policy = attr.ib()
+  legal_actions: List[int] = attr.ib()
+  index_in_tabular_policy: int = attr.ib()
   # Map from information states string representations and actions to the
   # counterfactual regrets, accumulated over the policy iterations
-  cumulative_regret = attr.ib(factory=lambda: collections.defaultdict(float))
+  cumulative_regret: Dict[int, float] = attr.ib(
+      factory=lambda: collections.defaultdict(float)
+  )
   # Same as above for the cumulative of the policy probabilities computed
   # during the policy iterations
-  cumulative_policy = attr.ib(factory=lambda: collections.defaultdict(float))
+  cumulative_policy: Dict[int, float] = attr.ib(
+      factory=lambda: collections.defaultdict(float)
+  )
 
 
-def _apply_regret_matching_plus_reset(info_state_nodes):
+def _apply_regret_matching_plus_reset(
+    info_state_nodes: Dict[str, _InfoStateNode],
+):
   """Resets negative cumulative regrets to 0.
 
   Regret Matching+ corresponds to the following cumulative regrets update:
@@ -71,7 +75,10 @@ def _apply_regret_matching_plus_reset(info_state_nodes):
         action_to_cum_regret[action] = 0
 
 
-def _update_current_policy(current_policy, info_state_nodes):
+def _update_current_policy(
+    current_policy: policy.TabularPolicy,
+    info_state_nodes: Dict[str, _InfoStateNode],
+):
   """Updates in place `current_policy` from the cumulative regrets.
 
   This function is a module level function to be reused by both CFRSolver and
@@ -90,7 +97,10 @@ def _update_current_policy(current_policy, info_state_nodes):
       state_policy[action] = value
 
 
-def _update_average_policy(average_policy, info_state_nodes):
+def _update_average_policy(
+    average_policy: policy.TabularPolicy,
+    info_state_nodes: Dict[str, _InfoStateNode],
+):
   """Updates in place `average_policy` to the average of all policies iterated.
 
   This function is a module level function to be reused by both CFRSolver and
@@ -127,12 +137,17 @@ class _CFRSolverBase(object):
       for i in range(num_iterations):
         solver.evaluate_and_update_policy()
         solver.current_policy()  # Access the current policy
-        solver.average_policy()  # Accsss the average policy
+        solver.average_policy()  # Access the average policy
   ```
   """
 
-  def __init__(self, game, alternating_updates, linear_averaging,
-               regret_matching_plus):
+  def __init__(
+      self,
+      game: pyspiel.Game,
+      alternating_updates: bool,
+      linear_averaging: bool,
+      regret_matching_plus: bool,
+  ):
     # pyformat: disable
     """Initializer.
 
@@ -169,7 +184,7 @@ class _CFRSolverBase(object):
     self._current_policy = policy.TabularPolicy(game)
     self._average_policy = self._current_policy.__copy__()
 
-    self._info_state_nodes = {}
+    self._info_state_nodes: Dict[str, _InfoStateNode] = {}
     self._initialize_info_state_nodes(self._root_node)
 
     self._iteration = 0  # For possible linear-averaging.
@@ -177,7 +192,7 @@ class _CFRSolverBase(object):
     self._alternating_updates = alternating_updates
     self._regret_matching_plus = regret_matching_plus
 
-  def _initialize_info_state_nodes(self, state):
+  def _initialize_info_state_nodes(self, state: pyspiel.State):
     """Initializes info_state_nodes.
 
     Create one _InfoStateNode per infoset. We could also initialize the node
@@ -209,7 +224,7 @@ class _CFRSolverBase(object):
     for action in info_state_node.legal_actions:
       self._initialize_info_state_nodes(state.child(action))
 
-  def current_policy(self):
+  def current_policy(self) -> policy.TabularPolicy:
     """Returns the current policy as a TabularPolicy.
 
     WARNING: The same object, updated in-place will be returned! You can copy
@@ -220,7 +235,7 @@ class _CFRSolverBase(object):
     """
     return self._current_policy
 
-  def average_policy(self):
+  def average_policy(self) -> policy.TabularPolicy:
     """Returns the average of all policies iterated.
 
     WARNING: The same object, updated in-place will be returned! You can copy
@@ -240,8 +255,13 @@ class _CFRSolverBase(object):
     _update_average_policy(self._average_policy, self._info_state_nodes)
     return self._average_policy
 
-  def _compute_counterfactual_regret_for_player(self, state, policies,
-                                                reach_probabilities, player):
+  def _compute_counterfactual_regret_for_player(
+      self,
+      state: pyspiel.State,
+      policies: Optional[List[Callable[[str], Dict[int, float]]]],
+      reach_probabilities: np.ndarray,
+      player: Optional[int],
+  ):
     """Increments the cumulative regrets and policy for `player`.
 
     Args:
@@ -271,8 +291,10 @@ class _CFRSolverBase(object):
         new_state = state.child(action)
         new_reach_probabilities = reach_probabilities.copy()
         new_reach_probabilities[-1] *= action_prob
-        state_value += action_prob * self._compute_counterfactual_regret_for_player(
-            new_state, policies, new_reach_probabilities, player)
+        state_value += (action_prob *
+                        self._compute_counterfactual_regret_for_player(
+                            new_state, policies, new_reach_probabilities,
+                            player))
       return state_value
 
     current_player = state.current_player()
@@ -340,7 +362,7 @@ class _CFRSolverBase(object):
 
     return state_value
 
-  def _get_infostate_policy(self, info_state_str):
+  def _get_infostate_policy(self, info_state_str: str) -> Dict[int, float]:
     """Returns an {action: prob} dictionary for the policy on `info_state`."""
     info_state_node = self._info_state_nodes[info_state_str]
     prob_vec = self._current_policy.action_probability_array[
@@ -350,7 +372,9 @@ class _CFRSolverBase(object):
     }
 
 
-def _regret_matching(cumulative_regrets, legal_actions):
+def _regret_matching(
+    cumulative_regrets: Dict[int, float], legal_actions: List[int]
+) -> Dict[int, float]:
   """Returns an info state policy by applying regret-matching.
 
   Args:
@@ -398,7 +422,7 @@ class _CFRSolver(_CFRSolverBase):
   Once the policy has converged, the average policy (which converges to the Nash
   policy) can be computed:
   ```python
-        average_policy = cfr_solver.ComputeAveragePolicy()
+        average_policy = cfr_solver.average_policy()
   ```
 
   # Policy and average policy
@@ -475,7 +499,7 @@ class CFRPlusSolver(_CFRSolver):
   Once the policy has converged, the average policy (which converges to the Nash
   policy) can be computed:
   ```python
-        average_policy = cfr_solver.ComputeAveragePolicy()
+        average_policy = cfr_solver.average_policy()
   ```
   """
 

@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,8 +14,8 @@
 
 #include "open_spiel/algorithms/corr_dist/afcce.h"
 
-#include "open_spiel/abseil-cpp/absl/strings/str_format.h"
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
+#include "absl/strings/str_format.h"
+#include "absl/types/optional.h"
 #include "open_spiel/spiel.h"
 
 namespace open_spiel {
@@ -32,7 +32,7 @@ AFCCEState::AFCCEState(std::shared_ptr<const Game> game,
       defect_action_(defect_action),
       rec_index_(-1),
       defected_(game->NumPlayers(), 0),
-      defection_infoset_(game->NumPlayers(), absl::nullopt),
+      defection_infoset_(game->NumPlayers(), std::nullopt),
       recommendation_seq_(game->NumPlayers(), std::vector<Action>({})) {}
 
 Player AFCCEState::CurrentPlayer() const {

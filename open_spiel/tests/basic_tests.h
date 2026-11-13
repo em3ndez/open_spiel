@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,10 +15,10 @@
 #ifndef OPEN_SPIEL_TESTS_BASIC_TESTS_H_
 #define OPEN_SPIEL_TESTS_BASIC_TESTS_H_
 
-#include <random>
+#include <functional>
+#include <memory>
 #include <string>
 
-#include "open_spiel/game_parameters.h"
 #include "open_spiel/policy.h"
 #include "open_spiel/spiel.h"
 
@@ -43,11 +43,18 @@ void NoChanceOutcomesTest(const Game& game);
 // state_checker_fn is called at every state (including chance nodes and
 // terminals), and is intended to be an easy way to pass context-specific
 // testing functions to the simulation tests.
-void RandomSimTest(
-    const Game& game, int num_sims,
-    bool serialize = true, bool verbose = true, bool mask_test = true,
-    const std::function<void(const State&)>& state_checker_fn
-        = &DefaultStateChecker);
+void RandomSimTest(const Game& game, int num_sims, bool serialize = true,
+                   bool verbose = true, bool mask_test = true,
+                   const std::function<void(const State&)>& state_checker_fn =
+                       &DefaultStateChecker,
+                   int mean_field_population = -1,
+                   std::shared_ptr<Observer> observer = nullptr,
+                   const State* initial_state = nullptr);
+
+// Cleaner version of the above with all the defaults set.
+void RandomSimTestWithSpecificInitialState(const Game& game, int num_sims,
+                                           const State* initial_state,
+                                           bool serialize = true);
 
 // Perform num_sims random simulations of the specified game. Also tests the
 // Undo function. Note: for every step in the simulation, the entire simulation

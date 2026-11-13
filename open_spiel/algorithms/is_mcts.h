@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,7 +21,7 @@
 #include <utility>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_map.h"
 #include "open_spiel/algorithms/mcts.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_bots.h"
@@ -57,6 +57,9 @@ struct ISMCTSNode {
   int total_visits;
 };
 
+using InfostateResampler = std::function<std::unique_ptr<State>(
+    const State& state, Player pl, std::function<double()> rng)>;
+
 class ISMCTSBot : public Bot {
  public:
   // Construct an IS-MCTS bot. The parameter max_world_samples controls how many
@@ -74,14 +77,16 @@ class ISMCTSBot : public Bot {
   ISMCTSBot(int seed, std::shared_ptr<Evaluator> evaluator, double uct_c,
             int max_simulations, int max_world_samples,
             ISMCTSFinalPolicyType final_policy_type,
-            bool use_observation_string, bool allow_inconsistent_action_sets);
+            bool use_observation_string, bool allow_inconsistent_action_sets,
+            double max_wall_clock_time = -1);
 
   // An IS-MCTS with sensible defaults.
   ISMCTSBot(int seed, std::shared_ptr<Evaluator> evaluator, double uct_c,
-            int max_simulations)
+            int max_simulations, double max_wall_clock_time = -1)
       : ISMCTSBot(seed, evaluator, uct_c, max_simulations,
                   kUnlimitedNumWorldSamples,
-                  ISMCTSFinalPolicyType::kNormalizedVisitCount, false, false) {}
+                  ISMCTSFinalPolicyType::kNormalizedVisitCount, false, false,
+                  max_wall_clock_time) {}
 
   Action Step(const State& state) override;
 
@@ -95,6 +100,8 @@ class ISMCTSBot : public Bot {
   // Bot maintains no history, so these are empty.
   void Restart() override {}
   void RestartAt(const State& state) override {}
+  // Set a custom resampling function.
+  void SetResampler(InfostateResampler cb) { resampler_cb_ = cb; }
 
  private:
   void Reset();
@@ -102,6 +109,9 @@ class ISMCTSBot : public Bot {
 
   ISMCTSStateKey GetStateKey(const State& state) const;
   std::unique_ptr<State> SampleRootState(const State& state);
+  // Dispatch to either domain-specific implementation,
+  // or a specially supplied one via SetResampler()
+  std::unique_ptr<State> ResampleFromInfostate(const State& state);
   ISMCTSNode* CreateNewNode(const State& state);
   ISMCTSNode* LookupNode(const State& state);
   ISMCTSNode* LookupOrCreateNode(const State& state);
@@ -136,11 +146,13 @@ class ISMCTSBot : public Bot {
 
   const double uct_c_;
   const int max_simulations_;
+  const double max_wall_clock_time_;
   const int max_world_samples_;
   const ISMCTSFinalPolicyType final_policy_type_;
   const bool use_observation_string_;
   const bool allow_inconsistent_action_sets_;
   ISMCTSNode* root_node_;
+  InfostateResampler resampler_cb_;
 };
 
 }  // namespace algorithms

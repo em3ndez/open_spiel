@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,9 +22,10 @@
 #include <string>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/algorithm/container.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_format.h"
+#include "absl/algorithm/container.h"
+#include "absl/container/btree_map.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "open_spiel/simultaneous_move_game.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_utils.h"
@@ -45,7 +46,7 @@ int GetBeliefHistorySize(const HistoryDistribution& beliefs) {
 std::unique_ptr<HistoryDistribution> AdvanceBeliefHistoryOneAction(
     std::unique_ptr<HistoryDistribution> previous, Action action,
     Player player_id, const Policy& opponent_policy) {
-  auto dist = absl::make_unique<HistoryDistribution>();
+  auto dist = std::make_unique<HistoryDistribution>();
   for (int i = 0; i < previous->first.size(); ++i) {
     std::unique_ptr<State>& state = previous->first[i];
     const double& prob = previous->second[i];
@@ -110,7 +111,7 @@ std::unique_ptr<HistoryDistribution> FilterOutBeliefs(
     const State& state, std::unique_ptr<HistoryDistribution> dist,
     int player_id) {
   const std::string infostate = state.InformationStateString(player_id);
-  auto new_dist = absl::make_unique<HistoryDistribution>();
+  auto new_dist = std::make_unique<HistoryDistribution>();
   std::vector<int> good_indices;
   for (int i = 0; i < dist->first.size(); ++i) {
     if (dist->first[i]->InformationStateString(player_id) == infostate) {
@@ -130,7 +131,7 @@ std::unique_ptr<HistoryDistribution> FilterOutBeliefs(
 
 std::unique_ptr<open_spiel::HistoryDistribution> CloneBeliefs(
     const open_spiel::HistoryDistribution& beliefs) {
-  auto beliefs_copy = absl::make_unique<open_spiel::HistoryDistribution>();
+  auto beliefs_copy = std::make_unique<open_spiel::HistoryDistribution>();
   for (int i = 0; i < beliefs.first.size(); ++i) {
     beliefs_copy->first.push_back(beliefs.first[i]->Clone());
     beliefs_copy->second.push_back(beliefs.second[i]);
@@ -162,7 +163,7 @@ HistoryDistribution GetStateDistribution(const State& state,
 
   // Generate the (info state, action) map for the current player using
   // the state's history.
-  std::map<std::string, Action> infostate_action_map;
+  absl::btree_map<std::string, Action> infostate_action_map;
   std::vector<Action> history = state.History();
   std::unique_ptr<State> tmp_state = game->NewInitialState();
   for (Action action : history) {
@@ -223,12 +224,10 @@ HistoryDistribution GetStateDistribution(const State& state,
         } else {
           // Check for expansion of this candidate. To expand this candidate,
           // the (infostate, action) pair must be contained in the map.
-          for (Action action : states[idx]->LegalActions()) {
-            auto iter = infostate_action_map.find(my_infostate_str);
-            if (iter != infostate_action_map.end() && action == iter->second) {
-              states.push_back(states[idx]->Child(action));
-              probs.push_back(probs[idx]);
-            }
+          auto iter = infostate_action_map.find(my_infostate_str);
+          if (iter != infostate_action_map.end() && iter->second) {
+            states.push_back(states[idx]->Child(iter->second));
+            probs.push_back(probs[idx]);
           }
         }
       } else {
@@ -277,7 +276,7 @@ std::unique_ptr<HistoryDistribution> UpdateIncrementalStateDistribution(
     if (!dist || dist->first.empty()) {
       // If the previous pair is empty, then we have to do a BFS to find all
       // relevant nodes:
-      dist = absl::make_unique<HistoryDistribution>(
+      dist = std::make_unique<HistoryDistribution>(
           GetStateDistribution(state, opponent_policy));
     }
   }
@@ -338,8 +337,6 @@ bool CheckBeliefs(const State& ground_truth_state,
     if (Near(beliefs.second[i], 0.0, 1e-5)) {
       continue;
     }
-    SPIEL_CHECK_EQ(ground_truth_state.FullHistory().size(),
-                   beliefs.first[i]->FullHistory().size());
     SPIEL_CHECK_EQ(infostate,
                    beliefs.first[i]->InformationStateString(player_id));
     SPIEL_CHECK_EQ(ground_truth_state.FullHistory().size(),

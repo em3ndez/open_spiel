@@ -1,10 +1,10 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -80,6 +80,34 @@ class KuhnPokerTest(absltest.TestCase):
     expected_nash_conv = 11 / 12
     self.assertAlmostEqual(
         pyspiel.exploitability(game, test_policy), expected_nash_conv / 2)
+
+  def test_cfr_cc(self):
+    """Runs a C++ CFR algorithm on the game."""
+    game = pyspiel.load_game("python_kuhn_poker")
+    unused_results = pyspiel.CFRSolver(game)
+
+  def test_struct_fallthrough_raises(self):
+    """Games without struct methods should raise RuntimeError."""
+    game = pyspiel.load_game("python_kuhn_poker")
+    state = game.new_initial_state()
+    # Move past initial chance nodes.
+    state.apply_action(state.legal_actions()[0])
+    state.apply_action(state.legal_actions()[0])
+
+    with self.assertRaises(RuntimeError):
+      state.to_struct()
+
+    with self.assertRaises(RuntimeError):
+      state.action_to_struct(state.current_player(), state.legal_actions()[0])
+
+    with self.assertRaises(RuntimeError):
+      state.to_observation_struct(0)
+
+  def test_new_initial_state_from_dict_fallthrough_raises(self):
+    """Games without new_initial_state(dict) support should raise."""
+    game = pyspiel.load_game("python_kuhn_poker")
+    with self.assertRaises(TypeError):
+      game.new_initial_state({"card": 0})
 
 
 if __name__ == "__main__":

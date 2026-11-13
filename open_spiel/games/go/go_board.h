@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2019 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,8 @@
 #include <array>
 #include <cstdint>
 #include <ostream>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "open_spiel/spiel_utils.h"
@@ -173,7 +175,7 @@ class GoBoard {
   // Number of stones in a chain.
   inline int ChainSize(VirtualPoint p) const { return chain(p).num_stones; }
 
-  std::string ToString();
+  std::string ToString() const;
 
   class GroupIter {
    public:

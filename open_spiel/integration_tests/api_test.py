@@ -1,19 +1,16 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-# Lint as: python3
-"""Tests for open_spiel.integration_tests.api."""
 
 import enum
 import re
@@ -25,8 +22,10 @@ from absl.testing import absltest
 from absl.testing import parameterized
 import numpy as np
 
+from open_spiel.python import games  # pylint:disable=unused-import
 from open_spiel.python.algorithms import get_all_states
 from open_spiel.python.algorithms import sample_some_states
+from open_spiel.python.mfg import games as mfg_games  # pylint:disable=unused-import
 from open_spiel.python.observation import make_observation
 import pyspiel
 
@@ -36,10 +35,17 @@ flags.DEFINE_string("test_only_games", ".*",
 
 _ALL_GAMES = pyspiel.registered_games()
 
-_GAMES_TO_TEST = set([g.short_name for g in _ALL_GAMES if g.default_loadable])
+_GAMES_TO_TEST = set(
+    [
+        g.short_name
+        for g in _ALL_GAMES
+        if g.default_loadable and not g.action_structs_only
+    ]
+)
 
 _GAMES_NOT_UNDER_TEST = [
-    g.short_name for g in _ALL_GAMES if not g.default_loadable
+    g.short_name for g in _ALL_GAMES if (not g.default_loadable or
+                                         g.action_structs_only)
 ]
 
 _GAMES_TO_OMIT_LEGAL_ACTIONS_CHECK = set(["bridge_uncontested_bidding"])
@@ -50,14 +56,14 @@ _GAMES_FULL_TREE_TRAVERSAL_TESTS = [
     ("cliff_walking", "cliff_walking(horizon=7)"),
     ("kuhn_poker", "kuhn_poker"),
     ("leduc_poker", "leduc_poker"),
-    ("iigoofspiel4", "turn_based_simultaneous_game(game=goofspiel("
-     "imp_info=True,num_cards=4,points_order=descending))"),
+    ("iigoofspiel4", ("turn_based_simultaneous_game(game=goofspiel("
+                      "imp_info=True,num_cards=4,points_order=descending))")),
     ("kuhn_poker3p", "kuhn_poker(players=3)"),
     ("first_sealed_auction", "first_sealed_auction(max_value=2)"),
     ("tiny_hanabi", "tiny_hanabi"),
-    ("nf_auction", "turn_based_simultaneous_game(game="
-     "normal_form_extensive_game(game="
-     "first_sealed_auction(max_value=3)))"),
+    ("nf_auction", ("turn_based_simultaneous_game(game="
+                    "normal_form_extensive_game(game="
+                    "first_sealed_auction(max_value=3)))")),
     # Disabled by default - big games, slow tests.
     # Uncomment to check the games if you modify them.
     # ("liars_dice", "liars_dice"),
@@ -381,17 +387,17 @@ class EnforceAPIOnPartialTreeBase(parameterized.TestCase):
             self.assertEmpty(state.legal_actions(player), msg=msg)
 
   def test_private_information_contents(self):
-    try:
-      private_observation = make_observation(
-          self.game,
-          pyspiel.IIGObservationType(
-              public_info=False,
-              perfect_recall=False,
-              private_info=pyspiel.PrivateInfoType.SINGLE_PLAYER))
-    except (RuntimeError, ValueError):
-      return
+    private_observation = make_observation(
+        self.game,
+        pyspiel.IIGObservationType(
+            public_info=False,
+            perfect_recall=False,
+            private_info=pyspiel.PrivateInfoType.SINGLE_PLAYER,
+        ),
+    )
 
-    if private_observation.string_from(self.some_states[0], 0) is None:
+    if (not private_observation
+        or private_observation.string_from(self.some_states[0], 0) is None):
       return
 
     player_has_private_info = [False] * self.game.num_players()
@@ -409,21 +415,22 @@ class EnforceAPIOnPartialTreeBase(parameterized.TestCase):
       self.assertFalse(any(player_has_private_info))
 
   def test_no_invalid_public_observations(self):
-    try:
-      public_observation = make_observation(
-          self.game,
-          pyspiel.IIGObservationType(
-              public_info=True,
-              perfect_recall=False,
-              private_info=pyspiel.PrivateInfoType.NONE))
-    except (ValueError, RuntimeError):
+    public_observation = make_observation(
+        self.game,
+        pyspiel.IIGObservationType(
+            public_info=True,
+            perfect_recall=False,
+            private_info=pyspiel.PrivateInfoType.NONE,
+        ),
+    )
+    if not public_observation:
       return
 
     if public_observation.string_from(self.some_states[0], 0) is None:
       return
 
     for state in self.some_states:
-      self.assertTrue(public_observation.string_from(state, 0))
+      self.assertIsNotNone(public_observation.string_from(state, 0))
 
 
 def _assert_properties_recursive(state, assert_functions):
@@ -578,10 +585,7 @@ def _assert_is_perfect_recall_recursive(state, current_history,
                           for s, a in current_history
                           if s.current_player() == current_player]
 
-      if not all([
-          np.array_equal(x, y)
-          for x, y in zip(expected_infosets_history, infosets_history)
-      ]):
+      if infosets_history != expected_infosets_history:
         raise ValueError("The history as tensor in the same infoset "
                          "are different:\n"
                          "History: {!r}\n".format(state.history()))

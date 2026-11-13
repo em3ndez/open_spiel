@@ -1,10 +1,10 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 """Perturbates any policy with tabular-saved, fixed noise.
 
 The policy's probabilities P' on each state s are computed as
@@ -37,8 +36,7 @@ class NoisyPolicy(openspiel_policy.Policy):
     Uniform)
   """
 
-  def __init__(self, policy, player_id=None, alpha=0.1,
-               beta=1.0):
+  def __init__(self, policy, player_id=None, alpha=0.1, beta=1.0):
     """Initializes the noisy policy.
 
     Note that this noise only affects `player_id`.
@@ -75,10 +73,23 @@ class NoisyPolicy(openspiel_policy.Policy):
     else:
       return str(state)
 
-  def get_or_create_noise(self, state):
-    info_state = self._state_key(state, state.current_player())
+  def get_or_create_noise(self, state, player_id=None):
+    """Get noisy policy or create it and return it.
+
+    Args:
+      state: the state to which the policy will be applied.
+      player_id: the player id that will apply the noisy policy. Default to
+        current_player. Should be defined in the case of simultaneous games.
+
+    Returns:
+      noise_action_probs: The noisy probability distribution on the set of legal
+        actions.
+    """
+    if player_id is None:
+      player_id = state.current_player()
+    info_state = self._state_key(state, player_id)
     if info_state not in self._noise_dict:
-      action_ids = state.legal_actions()
+      action_ids = state.legal_actions(player_id)
       noise = self._beta * np.random.normal(size=len(action_ids))
       noise = np.exp(noise - noise.max())
       noise /= np.sum(noise)
@@ -113,8 +124,10 @@ class NoisyPolicy(openspiel_policy.Policy):
 
     # If self._player_id is None, or if self.player_id == current_player, add
     # noise.
-    if (not self.player_id) or (state.current_player() == self.player_id):
-      noise_probs = self.get_or_create_noise(state)
+    if ((self.player_id is None) or
+        (state.current_player() == self.player_id) or
+        (player_id == self.player_id)):
+      noise_probs = self.get_or_create_noise(state, player_id)
       probs = self._policy.action_probabilities(state, player_id)
       probs = self.mix_probs(probs, noise_probs)
       return probs

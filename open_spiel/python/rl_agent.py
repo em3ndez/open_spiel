@@ -1,10 +1,10 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,10 +13,6 @@
 # limitations under the License.
 
 """Reinforcement Learning (RL) Agent Base for Open Spiel."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import abc
 import collections
@@ -30,7 +26,6 @@ class AbstractAgent(metaclass=abc.ABCMeta):
   @abc.abstractmethod
   def __init__(self,
                player_id,
-               session=None,
                observation_spec=None,
                name="agent",
                **agent_specific_kwargs):
@@ -39,9 +34,8 @@ class AbstractAgent(metaclass=abc.ABCMeta):
     Args:
       player_id: integer, mandatory. Corresponds to the player position in the
         game and is used to index the observation list.
-      session: optional Tensorflow session.
       observation_spec: optional dict containing observation specifications.
-      name: string. Must be used to scope TF variables. Defaults to `agent`.
+      name: string. Must be used to scope variables. Defaults to `agent`.
       **agent_specific_kwargs: optional extra args.
     """
 

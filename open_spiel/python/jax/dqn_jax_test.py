@@ -1,22 +1,16 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-"""Tests for open_spiel.python.jax.dqn."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 from absl.testing import absltest
 
@@ -39,15 +33,18 @@ class DQNTest(absltest.TestCase):
   def test_simple_game(self):
     game = pyspiel.load_efg_game(SIMPLE_EFG_DATA)
     env = rl_environment.Environment(game=game)
-    agent = dqn.DQN(0,
-                    state_representation_size=
-                    game.information_state_tensor_shape()[0],
-                    num_actions=game.num_distinct_actions(),
-                    hidden_layers_sizes=[16],
-                    replay_buffer_capacity=100,
-                    batch_size=5,
-                    epsilon_start=0.02,
-                    epsilon_end=0.01)
+    agent = dqn.DQN(
+        0,
+        state_representation_size=game.information_state_tensor_shape()[0],
+        num_actions=game.num_distinct_actions(),
+        hidden_layers_sizes=[16],
+        replay_buffer_capacity=100,
+        batch_size=5,
+        epsilon_start=0.02,
+        epsilon_end=0.01,
+        gradient_clipping=1.0,
+        allow_checkpointing=False,
+    )
     total_reward = 0
 
     for _ in range(100):
@@ -71,7 +68,10 @@ class DQNTest(absltest.TestCase):
             num_actions=num_actions,
             hidden_layers_sizes=[16],
             replay_buffer_capacity=10,
-            batch_size=5) for player_id in [0, 1]
+            batch_size=5,
+            allow_checkpointing=False,
+        )
+        for player_id in [0, 1]
     ]
     time_step = env.reset()
     while not time_step.last():
@@ -82,6 +82,21 @@ class DQNTest(absltest.TestCase):
 
     for agent in agents:
       agent.step(time_step)
+
+    total_eval_reward = [0] * 2
+
+    for _ in range(1000):
+      time_step = env.reset()
+      while not time_step.last():
+        current_player = time_step.observations["current_player"]
+        current_agent = agents[current_player]
+        agent_output = current_agent.step(time_step, is_evaluation=True)
+        time_step = env.step([agent_output.action])
+        total_eval_reward = [
+            t + r for t, r in zip(total_eval_reward, time_step.rewards)
+        ]
+
+    self.assertGreaterEqual(abs(total_eval_reward[0]), 1000)
 
   def test_run_hanabi(self):
     # Hanabi is an optional game, so check we have it before running the test.
@@ -110,7 +125,10 @@ class DQNTest(absltest.TestCase):
             num_actions=num_actions,
             hidden_layers_sizes=[16],
             replay_buffer_capacity=10,
-            batch_size=5) for player_id in range(num_players)
+            batch_size=5,
+            allow_checkpointing=False,
+        )
+        for player_id in range(num_players)
     ]
     time_step = env.reset()
     while not time_step.last():
@@ -120,44 +138,6 @@ class DQNTest(absltest.TestCase):
 
     for agent in agents:
       agent.step(time_step)
-
-
-class ReplayBufferTest(absltest.TestCase):
-
-  def test_replay_buffer_add(self):
-    # pylint: disable=g-generic-assert
-    replay_buffer = dqn.ReplayBuffer(replay_buffer_capacity=10)
-    self.assertEqual(len(replay_buffer), 0)
-    replay_buffer.add("entry1")
-    self.assertEqual(len(replay_buffer), 1)
-    replay_buffer.add("entry2")
-    self.assertEqual(len(replay_buffer), 2)
-
-    self.assertIn("entry1", replay_buffer)
-    self.assertIn("entry2", replay_buffer)
-
-  def test_replay_buffer_max_capacity(self):
-    # pylint: disable=g-generic-assert
-    replay_buffer = dqn.ReplayBuffer(replay_buffer_capacity=2)
-    replay_buffer.add("entry1")
-    replay_buffer.add("entry2")
-    replay_buffer.add("entry3")
-    self.assertEqual(len(replay_buffer), 2)
-
-    self.assertIn("entry2", replay_buffer)
-    self.assertIn("entry3", replay_buffer)
-
-  def test_replay_buffer_sample(self):
-    replay_buffer = dqn.ReplayBuffer(replay_buffer_capacity=3)
-    replay_buffer.add("entry1")
-    replay_buffer.add("entry2")
-    replay_buffer.add("entry3")
-
-    samples = replay_buffer.sample(3)
-
-    self.assertIn("entry1", samples)
-    self.assertIn("entry2", samples)
-    self.assertIn("entry3", samples)
 
 
 if __name__ == "__main__":

@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,13 +15,13 @@
 #ifndef OPEN_SPIEL_SPIEL_UTILS_H_
 #define OPEN_SPIEL_SPIEL_UTILS_H_
 
-#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <limits>
-#include <locale>
+#include <functional>
+#include <memory>
+#include <ostream>
 #include <random>
 #include <sstream>
 #include <string>
@@ -29,16 +29,13 @@
 #include <utility>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/random/uniform_real_distribution.h"
-#include "open_spiel/abseil-cpp/absl/strings/ascii.h"
-#include "open_spiel/abseil-cpp/absl/strings/match.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_join.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_split.h"
-#include "open_spiel/abseil-cpp/absl/time/clock.h"
-#include "open_spiel/abseil-cpp/absl/time/time.h"
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
-#include "open_spiel/abseil-cpp/absl/types/span.h"
+#include "absl/random/uniform_real_distribution.h"
+#include "absl/strings/str_cat.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
+#include "absl/types/optional.h"
+#include "absl/types/span.h"
+#include "nlohmann/json.hpp"
 
 // Code that is not part of the API, but is widely useful in implementations.
 
@@ -137,9 +134,12 @@ std::string SpielStrCat(Args&&... args) {
 using Player = int;
 using Action = int64_t;
 
-// Floating point comparisons use this as a multiplier on the larger of the two
-// numbers as the threshold.
-inline constexpr float FloatingPointDefaultThresholdRatio() { return 1e-5; }
+// Default floating point tolerance between two numbers.
+inline constexpr float FloatingPointDefaultTolerance() { return 1e-6; }
+
+// Default tolerance applied when validating variables are valid probability.
+inline constexpr float ProbabilityDefaultTolerance() { return 1e-9; }
+
 
 // Helpers used to convert actions represented as integers in mixed bases.
 // E.g. RankActionMixedBase({2, 3, 6}, {1, 1, 1}) = 1*18 + 1*6 + 1 = 25,
@@ -182,13 +182,12 @@ std::string VectorOfPairsToString(const std::vector<std::pair<A, B>>& vec,
                                   const std::string& pair_delimiter);
 
 // Returns whether the absolute difference between floating point values a and
-// b is less than or equal to FloatingPointThresholdRatio() * max(|a|, |b|).
+// b is less than or equal to.
 template <typename T>
 bool Near(T a, T b) {
   static_assert(std::is_floating_point<T>::value,
                 "Near() is only for floating point args.");
-  return fabs(a - b) <=
-         (std::max(fabs(a), fabs(b)) * FloatingPointDefaultThresholdRatio());
+  return fabs(a - b) <= FloatingPointDefaultTolerance();
 }
 
 // Returns whether |a - b| <= epsilon.
@@ -212,6 +211,11 @@ bool AllNear(const std::vector<T>& vector1, const std::vector<T>& vector2,
   }
   return true;
 }
+
+// Some string helpers. We should remove some of these as we upgrade abseil
+// versions.
+bool StrContainsIgnoreCase(const std::string& haystack,
+                           const std::string& needle);
 
 // Macros to check for error conditions.
 // These trigger SpielFatalError if the condition is violated.
@@ -260,6 +264,11 @@ bool AllNear(const std::vector<T>& vector1, const std::vector<T>& vector2,
   SPIEL_CHECK_GE(x, 0);     \
   SPIEL_CHECK_LE(x, 1);     \
   SPIEL_CHECK_FALSE(std::isnan(x) || std::isinf(x))
+#define SPIEL_CHECK_PROB_TOLERANCE(x, tol)      \
+  SPIEL_CHECK_GE(x, -(tol));      \
+  SPIEL_CHECK_LE(x, 1.0 + (tol)); \
+  SPIEL_CHECK_FALSE(std::isnan(x) || std::isinf(x))
+
 
 // Checks that x and y are equal to the default dynamic threshold proportional
 // to max(|x|, |y|).
@@ -276,6 +285,21 @@ bool AllNear(const std::vector<T>& vector1, const std::vector<T>& vector2,
   while (!(x))                                                   \
   open_spiel::SpielFatalError(open_spiel::internal::SpielStrCat( \
       __FILE__, ":", __LINE__, " CHECK_TRUE(", #x, ")"))
+
+#define SPIEL_CHECK_OK(x)                                        \
+  while (!(x).ok())                                              \
+  open_spiel::SpielFatalError(open_spiel::internal::SpielStrCat( \
+      __FILE__, ":", __LINE__, " CHECK_OK(", #x, "): ", (x).message()))
+
+// A verbose checker that will print state info:
+// Use as SPIEL_CHECK_TRUE_WSI(bool cond, const std::string& error_message,
+//                             const Game& game_ref, const State& state_ref)
+#define SPIEL_CHECK_TRUE_WSI(x, e, g, s)                         \
+  while (!(x))                                                   \
+  open_spiel::SpielFatalErrorWithStateInfo(                      \
+      open_spiel::internal::SpielStrCat(                         \
+      __FILE__, ":", __LINE__, " CHECK_TRUE(", #x, "): ", e),    \
+      (g), (s))
 
 #define SPIEL_CHECK_FALSE(x)                                     \
   while (x)                                                      \
@@ -381,7 +405,7 @@ inline To down_cast(From* f) {
 #if !defined(NDEBUG)
   if (f != nullptr && dynamic_cast<To>(f) == nullptr) {
     std::string from = typeid(From).name();
-    std::string to = typeid(From).name();
+    std::string to = typeid(To).name();
     SpielFatalError(
         absl::StrCat("Cast failure: could not cast a pointer from '", from,
                      "' to '", to, "'"));
@@ -397,7 +421,7 @@ inline To down_cast(From& f) {
 #if !defined(NDEBUG)
   if (dynamic_cast<ToAsPointer>(&f) == nullptr) {
     std::string from = typeid(From).name();
-    std::string to = typeid(From).name();
+    std::string to = typeid(To).name();
     SpielFatalError(
         absl::StrCat("Cast failure: could not cast a reference from '", from,
                      "' to '", to, "'"));
@@ -406,7 +430,119 @@ inline To down_cast(From& f) {
   return *static_cast<ToAsPointer>(&f);
 }
 
+// Creates a sampler from a std::function<double()> conforming to the
+// probabilities received. absl::discrete_distribution requires a URBG as a
+// source of randomness (as opposed to a std::function<double()>) so cannot
+// be used directly.
+class SamplerFromRng {
+ public:
+  explicit SamplerFromRng(std::function<double()> rng) : rng_(std::move(rng)) {}
+
+  int operator()(absl::Span<const double> probs);
+
+ private:
+  std::function<double()> rng_;
+};
 
 }  // namespace open_spiel
+
+// =============================================================================
+// Struct Macros
+// =============================================================================
+// These macros reduce boilerplate when defining game-specific structs.
+// They are placed outside the namespace as they define new types.
+// See docs/STRUCT_DESIGN.md for detailed documentation.
+
+// SPIEL_DEFINE_STRUCT: Generates a complete struct definition for structs that
+// inherit from a shared Contents class (typically used for StateStruct and
+// ObservationStruct where the same fields are shared).
+//
+// Usage:
+//   SPIEL_DEFINE_STRUCT(TicTacToeStateStruct, StateStruct,
+//   TicTacToeStructContents);
+//
+// Generates:
+//   struct TicTacToeStateStruct : public StateStruct, public
+//   TicTacToeStructContents {
+//     TicTacToeStateStruct() = default;
+//     explicit TicTacToeStateStruct(const std::string& json_str) { ... }
+//     nlohmann::json to_json_base() const override { return *this; }
+//   };
+#define SPIEL_DEFINE_STRUCT(StructName, BaseType, ContentsType)             \
+  struct StructName : public BaseType, public ContentsType {                \
+    StructName() = default;                                                 \
+    explicit StructName(const std::string& json_str) {                      \
+      nlohmann::json::parse(json_str).get_to(*this);                        \
+    }                                                                       \
+    explicit StructName(const nlohmann::json& json) { json.get_to(*this); } \
+    nlohmann::json to_json_base() const override { return *this; }          \
+  }
+
+// SPIEL_STRUCT_BOILERPLATE: Generates boilerplate for structs with inline
+// fields (typically used for ActionStruct where fields are defined directly).
+// Must be placed inside a struct definition after field declarations.
+//
+// Usage:
+//   struct TicTacToeActionStruct : public ActionStruct {
+//     int row;
+//     int col;
+//     SPIEL_STRUCT_BOILERPLATE(TicTacToeActionStruct, row, col);
+//   };
+//
+// Generates:
+//   - NLOHMANN_DEFINE_TYPE_INTRUSIVE for JSON serialization
+//   - Default constructor
+//   - JSON string constructor
+//   - to_json_base() override
+#define SPIEL_STRUCT_BOILERPLATE(StructName, ...)                         \
+  NLOHMANN_DEFINE_TYPE_INTRUSIVE(StructName, __VA_ARGS__)                 \
+  StructName() = default;                                                 \
+  explicit StructName(const std::string& json_str) {                      \
+    nlohmann::json::parse(json_str).get_to(*this);                        \
+  }                                                                       \
+  explicit StructName(const nlohmann::json& json) { json.get_to(*this); } \
+  nlohmann::json to_json_base() const override { return *this; }
+
+// SPIEL_DEFINE_STRUCT_WITH_EXTRAS: Combine Contents + Extras into one struct.
+// For structs that need fields from two sources (Contents + Extras).
+// Common use case: ObservationStruct with shared Contents plus observation-
+// specific fields like observing_player.
+//
+// Usage:
+//   // First, define the extras struct:
+//   struct GinRummyObservationExtras {
+//     int observing_player = -1;
+//     NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(
+//         GinRummyObservationExtras, observing_player);
+//   };
+//
+//   // Then use this macro:
+//   SPIEL_DEFINE_STRUCT_WITH_EXTRAS(
+//       GinRummyObservationStruct,
+//       ObservationStruct,
+//       GinRummyStructContents,
+//       GinRummyObservationExtras);
+#define SPIEL_DEFINE_STRUCT_WITH_EXTRAS(StructName, BaseType, ContentsType, \
+                                        ExtrasType)                         \
+  struct StructName : public BaseType,                                      \
+                      public ContentsType,                                  \
+                      public ExtrasType {                                   \
+    StructName() = default;                                                 \
+    explicit StructName(const std::string& json_str) {                      \
+      nlohmann::json data = nlohmann::json::parse(json_str);                \
+      data.get_to(static_cast<ContentsType&>(*this));                       \
+      data.get_to(static_cast<ExtrasType&>(*this));                         \
+    }                                                                       \
+    explicit StructName(const nlohmann::json& json) {                       \
+      json.get_to(static_cast<ContentsType&>(*this));                       \
+      json.get_to(static_cast<ExtrasType&>(*this));                         \
+    }                                                                       \
+    nlohmann::json to_json_base() const override {                          \
+      nlohmann::json j = static_cast<const ContentsType&>(*this);           \
+      nlohmann::json extras = static_cast<const ExtrasType&>(*this);        \
+      j.merge_patch(extras);                                                \
+      return j;                                                             \
+    }                                                                       \
+  }
 
 #endif  // OPEN_SPIEL_SPIEL_UTILS_H_

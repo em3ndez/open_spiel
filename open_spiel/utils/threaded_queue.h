@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,10 +17,10 @@
 
 #include <queue>
 
-#include "open_spiel/abseil-cpp/absl/synchronization/mutex.h"
-#include "open_spiel/abseil-cpp/absl/time/clock.h"
-#include "open_spiel/abseil-cpp/absl/time/time.h"
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
+#include "absl/synchronization/mutex.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
+#include "absl/types/optional.h"
 
 namespace open_spiel {
 
@@ -36,7 +36,7 @@ class ThreadedQueue {
     return Push(value, absl::Now() + wait);
   }
   bool Push(const T& value, absl::Time deadline) {
-    absl::MutexLock lock(&m_);
+    absl::MutexLock lock(m_);
     if (block_new_values_) {
       return false;
     }
@@ -54,7 +54,7 @@ class ThreadedQueue {
   absl::optional<T> Pop() { return Pop(absl::InfiniteDuration()); }
   absl::optional<T> Pop(absl::Duration wait) { return Pop(absl::Now() + wait); }
   absl::optional<T> Pop(absl::Time deadline) {
-    absl::MutexLock lock(&m_);
+    absl::MutexLock lock(m_);
     while (q_.empty()) {
       if (absl::Now() > deadline || block_new_values_) {
         return absl::nullopt;
@@ -68,25 +68,25 @@ class ThreadedQueue {
   }
 
   bool Empty() {
-    absl::MutexLock lock(&m_);
+    absl::MutexLock lock(m_);
     return q_.empty();
   }
 
   void Clear() {
-    absl::MutexLock lock(&m_);
+    absl::MutexLock lock(m_);
     while (!q_.empty()) {
       q_.pop();
     }
   }
 
   int Size() {
-    absl::MutexLock lock(&m_);
+    absl::MutexLock lock(m_);
     return q_.size();
   }
 
   // Causes pushing new values to fail. Useful for shutting down the queue.
   void BlockNewValues() {
-    absl::MutexLock lock(&m_);
+    absl::MutexLock lock(m_);
     block_new_values_ = true;
     cv_.SignalAll();
   }

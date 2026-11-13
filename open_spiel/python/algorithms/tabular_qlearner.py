@@ -1,10 +1,10 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,17 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tabular Q-learning agent."""
+"""Tabular Q-learning agent.
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+Note: supports single-player games only.
+"""
 
 import collections
+
 import numpy as np
 
 from open_spiel.python import rl_agent
 from open_spiel.python import rl_tools
+import pyspiel
+
+
+def valuedict():
+  # The default factory is called without arguments to produce a new value when
+  # a key is not present, in __getitem__ only. This value is added to the dict,
+  # so modifying it will modify the dict.
+  return collections.defaultdict(float)
 
 
 class QLearner(rl_agent.AbstractAgent):
@@ -31,13 +39,16 @@ class QLearner(rl_agent.AbstractAgent):
   See open_spiel/python/examples/tic_tac_toe_qlearner.py for an usage example.
   """
 
-  def __init__(self,
-               player_id,
-               num_actions,
-               step_size=0.1,
-               epsilon_schedule=rl_tools.ConstantSchedule(0.2),
-               discount_factor=1.0,
-               centralized=False):
+  def __init__(
+      self,
+      player_id,
+      num_actions,
+      step_size=0.1,
+      epsilon_schedule=rl_tools.ConstantSchedule(0.2),
+      discount_factor=1.0,
+      centralized=False,
+      info_state_to_string_override=None,
+  ):
     """Initialize the Q-Learning agent."""
     self._player_id = player_id
     self._num_actions = num_actions
@@ -46,10 +57,11 @@ class QLearner(rl_agent.AbstractAgent):
     self._epsilon = epsilon_schedule.value
     self._discount_factor = discount_factor
     self._centralized = centralized
-    self._q_values = collections.defaultdict(
-        lambda: collections.defaultdict(float))
+    self._q_values = collections.defaultdict(valuedict)
     self._prev_info_state = None
     self._last_loss_value = None
+    self._prev_action = None
+    self._info_state_to_string_override = info_state_to_string_override
 
   def _epsilon_greedy(self, info_state, legal_actions, epsilon):
     """Returns a valid epsilon-greedy action and valid action probs.
@@ -74,6 +86,22 @@ class QLearner(rl_agent.AbstractAgent):
     action = np.random.choice(range(self._num_actions), p=probs)
     return action, probs
 
+  def _get_action_probs(self, info_state, legal_actions, epsilon):
+    """Returns a selected action and the probabilities of legal actions.
+
+    To be overwritten by subclasses that implement other action selection
+    methods.
+
+    Args:
+      info_state: hashable representation of the information state.
+      legal_actions: list of actions at `info_state`.
+      epsilon: float: current value of the epsilon schedule or 0 in case
+        evaluation. QLearner uses it as the exploration parameter in
+        epsilon-greedy, but subclasses are free to interpret in different ways
+        (e.g. as temperature in softmax).
+    """
+    return self._epsilon_greedy(info_state, legal_actions, epsilon)
+
   def step(self, time_step, is_evaluation=False):
     """Returns the action to be taken and updates the Q-values if needed.
 
@@ -88,6 +116,13 @@ class QLearner(rl_agent.AbstractAgent):
       info_state = str(time_step.observations["info_state"])
     else:
       info_state = str(time_step.observations["info_state"][self._player_id])
+
+    if self._info_state_to_string_override is not None:
+      _, state = pyspiel.deserialize_game_and_state(
+          time_step.observations["serialized_state"]
+      )
+      info_state = self._info_state_to_string_override(state)
+
     legal_actions = time_step.observations["legal_actions"][self._player_id]
 
     # Prevent undefined errors if this agent never plays until terminal step
@@ -96,8 +131,7 @@ class QLearner(rl_agent.AbstractAgent):
     # Act step: don't act at terminal states.
     if not time_step.last():
       epsilon = 0.0 if is_evaluation else self._epsilon
-      action, probs = self._epsilon_greedy(
-          info_state, legal_actions, epsilon=epsilon)
+      action, probs = self._get_action_probs(info_state, legal_actions, epsilon)
 
     # Learn step: don't learn during evaluation or at first agent steps.
     if self._prev_info_state and not is_evaluation:
@@ -106,6 +140,7 @@ class QLearner(rl_agent.AbstractAgent):
         target += self._discount_factor * max(
             [self._q_values[info_state][a] for a in legal_actions])
 
+      assert self._prev_action is not None
       prev_q_value = self._q_values[self._prev_info_state][self._prev_action]
       self._last_loss_value = target - prev_q_value
       self._q_values[self._prev_info_state][self._prev_action] += (

@@ -1,8 +1,15 @@
 
+<!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
+<!-- disableFinding(HEADING_REPEAT_H1) -->
+<!-- disableFinding(SNIPPET_INVALID_LANGUAGE) -->
+<!-- disableFinding("github") -->
+<!-- disableFinding(LINK_CL_HEAD) -->
+
 # OpenSpiel: A Framework for Reinforcement Learning in Games
 
 [![Documentation Status](https://readthedocs.org/projects/openspiel/badge/?version=latest)](https://openspiel.readthedocs.io/en/latest/?badge=latest)
 ![build_and_test](https://github.com/deepmind/open_spiel/workflows/build_and_test/badge.svg)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org)
 
 OpenSpiel is a collection of environments and algorithms for research in general
 reinforcement learning and search/planning in games. OpenSpiel supports n-player
@@ -18,18 +25,21 @@ Python. Algorithms and tools are written both in C++ and Python.
 To try OpenSpiel in Google Colaboratory, please refer to `open_spiel/colabs` subdirectory or start [here](https://colab.research.google.com/github/deepmind/open_spiel/blob/master/open_spiel/colabs/install_open_spiel.ipynb).
 
 <p align="center">
-  <img src="docs/_static/OpenSpielB.png" alt="OpenSpiel visual asset">
+  <img src="docs/_static/OpenSpielC.png" alt="OpenSpiel visual asset" width="800px">
 </p>
 
 # Index
 
 Please choose among the following options:
 
-*   [Installing OpenSpiel](docs/install.md)
+*   [Installing OpenSpiel](docs/install.md) (for Linux and MacOS; see separate
+    [Windows Installation](docs/windows.md) instructions.)
 *   [Introduction to OpenSpiel](docs/intro.md)
 *   [API Overview and First Example](docs/concepts.md)
+*   [API Reference](docs/api_reference.md)
 *   [Overview of Implemented Games](docs/games.md)
 *   [Overview of Implemented Algorithms](docs/algorithms.md)
+*   [Playing Games in a Browser](docs/gui.md)
 *   [Developer Guide](docs/developer_guide.md)
 *   [Using OpenSpiel as a C++ Library](docs/library.md)
 *   [Guidelines and Contributing](docs/contributing.md)
@@ -43,9 +53,10 @@ For an overview of OpenSpiel and example uses of the core API, please check out
 our tutorials:
 
 *   [Motivation, Core API, Brief Intro to Replictor Dynamics and Imperfect
-    Information Games](https://www.youtube.com/watch?v=YE0E0F39lac) by Marc
+    Information Games](https://www.youtube.com/watch?v=8NCPqtPwlFQ) by Marc
     Lanctot.
-    [(slides)](http://mlanctot.info/files/open_spiel_tutorial-mar2021-kuleuven.pdf).
+    [(slides)](http://mlanctot.info/files/OpenSpiel_Tutorial_KU_Leuven_2022.pdf)
+    [(colab)](https://colab.research.google.com/github/deepmind/open_spiel/blob/master/open_spiel/colabs/OpenSpielTutorial.ipynb)
 *   [Motivation, Core API, Implementing CFR and REINFORCE on Kuhn poker, Leduc
     poker, and Goofspiel](https://www.youtube.com/watch?v=o6JNHoGUXCo) by Edward
     Lockhart.
@@ -55,7 +66,7 @@ our tutorials:
 If you use OpenSpiel in your research, please cite the paper using the following
 BibTeX:
 
-```
+```bibtex
 @article{LanctotEtAl2019OpenSpiel,
   title     = {{OpenSpiel}: A Framework for Reinforcement Learning in Games},
   author    = {Marc Lanctot and Edward Lockhart and Jean-Baptiste Lespiau and
@@ -75,6 +86,13 @@ BibTeX:
   url       = {http://arxiv.org/abs/1908.09453},
 }
 ```
+
+## Pretrained Checkpoints and Data
+
+Pretrained baseline checkpoints and reference game datasets are published at
+[`gs://openspiel-data`](https://storage.googleapis.com/openspiel-data/README.md)
+(for example, the Oklahoma gin rummy agent at
+[`checkpoints/scale/gin_rummy/v1`](https://storage.googleapis.com/openspiel-data/checkpoints/scale/gin_rummy/v1/README.md)).
 
 ## Versioning
 

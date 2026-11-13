@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -31,9 +31,7 @@ namespace torch_dqn {
 // Always includes biases and only supports ReLU activations.
 class SimpleLinearImpl : public torch::nn::Module {
  public :
-  SimpleLinearImpl(int input_size,
-                   int output_size,
-                   bool activate_relu);
+  SimpleLinearImpl(int input_size, int output_size, bool activate_relu = true);
   torch::Tensor forward(torch::Tensor x);
 
  private:
@@ -45,10 +43,8 @@ TORCH_MODULE(SimpleLinear);
 // A simple dense network built from linear layers above.
 class MLPImpl : public torch::nn::Module {
  public:
-  MLPImpl(const int& input_size,
-          const std::vector<int>& hidden_layers_sizes,
-          const int& output_size,
-          bool activate_final = false);
+  MLPImpl(int input_size, const std::vector<int>& hidden_layers_sizes,
+          int output_size, bool activate_final = false);
   torch::Tensor forward(torch::Tensor x);
 
  private:

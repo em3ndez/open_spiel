@@ -1,10 +1,10 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,10 +13,6 @@
 # limitations under the License.
 
 """Continuous-time population dynamics."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import numpy as np
 
@@ -168,7 +164,7 @@ class MultiPopulationDynamics(object):
       fitness = np.moveaxis(self.payoff_tensor[i], i, 0)
       # marginalize out all other populations
       for i_ in set(range(n)) - {i}:
-        fitness = np.tensordot(states[i_], fitness, axes=[0, 1])
+        fitness = np.tensordot(states[i_], fitness, axes=[0, 1])  # pyrefly: ignore[no-matching-overload]
       dstates[i] = self.dynamics[i](states[i], fitness)
 
     return np.concatenate(dstates)

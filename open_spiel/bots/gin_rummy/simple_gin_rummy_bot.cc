@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,19 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "open_spiel/bots/gin_rummy/simple_gin_rummy_bot.h"
+
 #include <algorithm>
+#include <iostream>
+#include <optional>
+#include <utility>
 #include <vector>
 
+#include "absl/algorithm/container.h"
+#include "open_spiel/game_parameters.h"
+#include "open_spiel/games/gin_rummy/gin_rummy.h"
+#include "open_spiel/games/gin_rummy/gin_rummy_utils.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_utils.h"
-#include "open_spiel/spiel_bots.h"
 
-#include "open_spiel/bots/gin_rummy/simple_gin_rummy_bot.h"
-#include "open_spiel/games/gin_rummy.h"
-#include "open_spiel/games/gin_rummy/gin_rummy_utils.h"
+namespace open_spiel::gin_rummy {
 
-namespace open_spiel {
-namespace gin_rummy {
+SimpleGinRummyBot::SimpleGinRummyBot(GameParameters params,
+                                     const Player player_id)
+    : params_(std::move(params)),
+      player_id_(player_id),
+      hand_size_(params_["hand_size"].int_value()),
+      utils_(params_["num_ranks"].int_value(), params_["num_suits"].int_value(),
+             params_["hand_size"].int_value()) {}
 
 void SimpleGinRummyBot::Restart() {
   knocked_ = false;
@@ -40,6 +51,16 @@ ActionsAndProbs SimpleGinRummyBot::GetPolicy(const State& state) {
   return policy;
 }
 
+std::pair<ActionsAndProbs, Action> SimpleGinRummyBot::StepWithPolicy(
+    const State& state) {
+  ActionsAndProbs policy;
+  auto legal_actions = state.LegalActions(player_id_);
+  auto chosen_action = Step(state);
+  for (auto action : legal_actions)
+    policy.emplace_back(action, action == chosen_action ? 1.0 : 0.0);
+  return {policy, chosen_action};
+}
+
 Action SimpleGinRummyBot::Step(const State& state) {
   std::vector<float> observation;
   state.ObservationTensor(player_id_, &observation);
@@ -47,7 +68,7 @@ Action SimpleGinRummyBot::Step(const State& state) {
   std::vector<int> hand;
   std::vector<int> layed_melds;
   std::vector<int> discard_pile;
-  absl::optional<int> upcard = absl::nullopt;
+  std::optional<int> upcard = std::nullopt;
   int knock_card = 0;
   int stock_size = 0;
 
@@ -121,12 +142,30 @@ Action SimpleGinRummyBot::Step(const State& state) {
       }
       next_actions_.push_back(kPassAction);
     } else {
+      // Choose the discard that minimizes the deadwood of the ten cards kept,
+      // then lay the melds of that same hand. The best meld group of all
+      // eleven cards need not leave the best ten-card hand.
+      int best_discard = GetDiscard(hand);
+      std::vector<int> remaining = hand;
+      remaining.erase(
+          std::remove(remaining.begin(), remaining.end(), best_discard),
+          remaining.end());
+      int best_deadwood = utils_.MinDeadwood(remaining);
+      for (int card : hand) {
+        std::vector<int> candidate = hand;
+        candidate.erase(std::remove(candidate.begin(), candidate.end(), card),
+                        candidate.end());
+        int deadwood = utils_.MinDeadwood(candidate);
+        if (deadwood < best_deadwood) {
+          best_deadwood = deadwood;
+          best_discard = card;
+          remaining = std::move(candidate);
+        }
+      }
       next_actions_.push_back(kPassAction);
-      std::vector<int> melds_to_lay = GetMelds(hand);
-      for (int meld_id : melds_to_lay) {
+      for (int meld_id : GetMelds(remaining)) {
         next_actions_.push_back(kMeldActionBase + meld_id);
       }
-      int best_discard = GetDiscard(hand);
       next_actions_.push_back(best_discard);
     }
     Action action = next_actions_.back();
@@ -179,8 +218,8 @@ Action SimpleGinRummyBot::Step(const State& state) {
 // Returns the "best" deadwood, i.e. the cards that do not belong to one of the
 // "best" melds. Here "best" means any meld group that achieves the lowest
 // possible deadwood count for the given hand. In general this is non-unique.
-std::vector<int> SimpleGinRummyBot::GetBestDeadwood(std::vector<int> hand,
-    const absl::optional<int> card) const {
+std::vector<int> SimpleGinRummyBot::GetBestDeadwood(
+    std::vector<int> hand, const std::optional<int> card) const {
   if (card.has_value()) hand.push_back(card.value());
   for (const auto& meld : utils_.BestMeldGroup(hand)) {
     for (auto card : meld) {
@@ -224,6 +263,4 @@ std::vector<int> SimpleGinRummyBot::GetMelds(std::vector<int> hand) const {
   return rv;
 }
 
-}  // namespace gin_rummy
-}  // namespace open_spiel
-
+}  // namespace open_spiel::gin_rummy

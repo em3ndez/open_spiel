@@ -10,7 +10,7 @@ Similar examples using the Python API (run from one above `build`):
 
 ```bash
 # Similar to the C++ example:
-python3 open_spiel/python/examples/example.py --game=breakthrough
+python3 open_spiel/python/examples/example.py --game_string=breakthrough
 
 # Play a game against a random or MCTS bot:
 python3 open_spiel/python/examples/mcts.py --game=tic_tac_toe --player1=human --player2=random
@@ -39,7 +39,7 @@ There are mainly 2 concepts to know about (defined in
 *   A `Game` object contains the high level description for a game (e.g. whether
     it is simultaneous or sequential, the number of players, the maximum and
     minimum scores).
-*   A `State`, which describe a specifics point (e.g. a specific board position
+*   A `State`, which describes a specific point (e.g. a specific board position
     in chess, a specific set of player cards, public cards and past bets in
     Poker) within a trajectory.
 
@@ -49,10 +49,10 @@ players. Transitions are actions taken by players (in case of a simultaneous
 node, the transition is composed of the actions for all players).
 
 Note that in most games, we deal with chance (i.e. any source of randomness)
-using a an explicit player (the "chance" player, which has id
-`kChancePlayerId`). For example, in Poker, the root state would just be the
-players without any cards, and the first transitions will be chance nodes to
-deal the cards to the players (in practice once card is dealt per transition).
+using an explicit player (the "chance" player, which has id `kChancePlayerId`).
+For example, in Poker, the root state would just be the players without any
+cards, and the first transitions will be chance nodes to deal the cards to the
+players (in practice one card is dealt per transition).
 
 See `spiel.h` for the full API description. For example,
 `game.NewInitialState()` will return the root `State`. Then,

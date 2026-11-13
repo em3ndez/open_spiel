@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2019 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,11 +15,17 @@
 #include "open_spiel/games/gin_rummy/gin_rummy_utils.h"
 
 #include <algorithm>
+#include <cstring>
+#include <map>
 #include <set>
+#include <string>
 #include <utility>
+#include <vector>
 
-#include "open_spiel/abseil-cpp/absl/algorithm/container.h"
-#include "open_spiel/spiel.h"
+#include "absl/algorithm/container.h"
+#include "absl/strings/str_cat.h"
+#include "absl/types/optional.h"
+#include "open_spiel/spiel_utils.h"
 
 namespace open_spiel {
 namespace gin_rummy {
@@ -322,6 +328,19 @@ int GinRummyUtils::MinDeadwood(VecInt hand, absl::optional<int> card) const {
 
 // Minimum deadwood count over all meld groups.
 int GinRummyUtils::MinDeadwood(const VecInt &hand) const {
+  // A hand that has just drawn must discard. The best meld group of all
+  // hand_size + 1 cards need not leave the best hand after the discard, so
+  // minimize over the discard and solve each remaining hand exactly.
+  if (hand.size() == hand_size + 1) {
+    int best = TotalCardValue(hand);
+    for (int i = 0; i < hand.size(); ++i) {
+      VecInt remaining(hand);
+      remaining.erase(remaining.begin() + i);
+      best = std::min(best, MinDeadwood(remaining));
+      if (best == 0) return 0;
+    }
+    return best;
+  }
   VecInt deadwood = hand;
   VecVecInt best_melds = BestMeldGroup(hand);
 
@@ -330,11 +349,6 @@ int GinRummyUtils::MinDeadwood(const VecInt &hand) const {
       deadwood.erase(std::remove(deadwood.begin(), deadwood.end(), card),
                      deadwood.end());
     }
-  }
-  // If we have just drawn a card, we can discard the one worth the most points.
-  if (hand.size() == hand_size + 1 && !deadwood.empty()) {
-    absl::c_sort(deadwood, rank_comp);
-    deadwood.pop_back();
   }
   int deadwood_total = 0;
   for (int card : deadwood) deadwood_total += CardValue(card);
@@ -390,7 +404,7 @@ VecInt GinRummyUtils::LegalMelds(const VecInt &hand, int knock_card) const {
 
 // Returns the legal discards when a player has knocked. Normally a player can
 // discard any card in their hand. When a player knocks, however, they must
-// discard a card that preseves the ability to arrange the hand so that the
+// discard a card that preserves the ability to arrange the hand so that the
 // total deadwood is less than the knock card.
 VecInt GinRummyUtils::LegalDiscards(const VecInt &hand, int knock_card) const {
   std::set<int> legal_discards;
@@ -413,13 +427,21 @@ VecInt GinRummyUtils::AllLayoffs(const VecInt &layed_melds,
     if (IsRankMeld(meld) && meld.size() == 3) {
       layoffs.insert(RankMeldLayoff(meld));
     } else if (IsSuitMeld(meld)) {
+      // Each card laid off on a run exposes a new end, so extend the run
+      // until no previous layoff attaches. This allows chains of layoffs on
+      // the same end, in whatever order previous_layoffs lists them.
       VecInt suit_layoffs = SuitMeldLayoffs(meld);
-      for (int card : previous_layoffs) {
-        if (absl::c_linear_search(suit_layoffs, card)) {
-          meld.push_back(card);
+      bool extended = true;
+      while (extended) {
+        extended = false;
+        for (int card : previous_layoffs) {
+          if (absl::c_linear_search(suit_layoffs, card)) {
+            meld.push_back(card);
+            suit_layoffs = SuitMeldLayoffs(meld);
+            extended = true;
+          }
         }
       }
-      suit_layoffs = SuitMeldLayoffs(meld);
       for (int card : suit_layoffs) {
         layoffs.insert(card);
       }

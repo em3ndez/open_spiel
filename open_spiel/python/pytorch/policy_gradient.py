@@ -1,10 +1,10 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -69,20 +69,16 @@ See  open_spiel/python/pytorch/losses/rl_losses_test.py for an example of the
 loss computation.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 import collections
 import os
 from absl import logging
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
+from torch import optim
 import torch.nn.functional as F
-import torch.optim as optim
 
 from open_spiel.python import rl_agent
-from open_spiel.python.pytorch.dqn import SonnetLinear
 from open_spiel.python.pytorch.losses import rl_losses
 
 Transition = collections.namedtuple(
@@ -107,7 +103,7 @@ class MLPTorso(nn.Module):
     self._layers = []
     # Hidden layers
     for size in hidden_sizes:
-      self._layers.append(SonnetLinear(in_size=input_size, out_size=size))
+      self._layers.append(nn.Sequential(nn.Linear(input_size, size), nn.ReLU()))
       input_size = size
 
     self.model = nn.ModuleList(self._layers)
@@ -146,8 +142,8 @@ class PolicyGradient(rl_agent.AbstractAgent):
       info_state_size: int, info_state vector size.
       num_actions: int, number of actions per info state.
       loss_str: string or None. If string, must be one of ["rpg", "qpg", "rm",
-        "a2c"] and defined in `_get_loss_class`. If None, a loss class must be
-        passed through `loss_class`. Defaults to "a2c".
+        "a2c", "neurd"] and defined in `_get_loss_class`. If None, a loss class
+        must be passed through `loss_class`. Defaults to "a2c".
       loss_class: Class or None. If Class, it must define the policy gradient
         loss. If None a loss class in a string format must be passed through
         `loss_str`. Defaults to None.
@@ -200,8 +196,7 @@ class PolicyGradient(rl_agent.AbstractAgent):
     # activate final as we plug logit and qvalue heads afterwards.
     self._net_torso = MLPTorso(info_state_size, self._layer_sizes)
     torso_out_size = self._layer_sizes[-1]
-    self._policy_logits_layer = SonnetLinear(
-        torso_out_size, self._num_actions, activate_relu=False)
+    self._policy_logits_layer = nn.Linear(torso_out_size, self._num_actions)
     # Do not remove policy_logits_network. Even if it's not used directly here,
     # other code outside this file refers to it.
     self.policy_logits_network = nn.Sequential(self._net_torso,
@@ -209,7 +204,7 @@ class PolicyGradient(rl_agent.AbstractAgent):
 
     self._savers = []
 
-    # Add baseline (V) head for A2C (or Q-head for QPG / RPG / RMPG)
+    # Add baseline (V) head for A2C (or Q-head for QPG / RPG / RMPG / NeuRD)
     if optimizer_str == "adam":
       self._critic_optimizer = optim.Adam
     elif optimizer_str == "sgd":
@@ -218,13 +213,11 @@ class PolicyGradient(rl_agent.AbstractAgent):
       raise ValueError("Not implemented, choose from 'adam' and 'sgd'.")
 
     if loss_class.__name__ == "BatchA2CLoss":
-      self._baseline_layer = SonnetLinear(
-          torso_out_size, 1, activate_relu=False)
+      self._baseline_layer = nn.Linear(torso_out_size, 1)
       self._critic_network = nn.Sequential(self._net_torso,
                                            self._baseline_layer)
     else:
-      self._q_values_layer = SonnetLinear(
-          torso_out_size, self._num_actions, activate_relu=False)
+      self._q_values_layer = nn.Linear(torso_out_size, self._num_actions)
       self._critic_network = nn.Sequential(self._net_torso,
                                            self._q_values_layer)
 
@@ -252,6 +245,8 @@ class PolicyGradient(rl_agent.AbstractAgent):
       return rl_losses.BatchRMLoss
     elif loss_str == "a2c":
       return rl_losses.BatchA2CLoss
+    elif loss_str == "neurd":
+      return rl_losses.BatchNeuRDLoss
 
   def minimize_with_clipping(self, model, optimizer, loss):
     optimizer.zero_grad()
@@ -425,9 +420,9 @@ class PolicyGradient(rl_agent.AbstractAgent):
     else:
       # Q-loss otherwise.
       q_values = self._q_values_layer(torso_out)
-      action_indices = torch.stack([torch.range(q_values.shape[0]), action],
-                                   dim=-1)
-      value_predictions = torch.gather_nd(q_values, action_indices)
+      action_indices = torch.stack(
+          [torch.arange(q_values.shape[0], dtype=torch.long), action], dim=0)
+      value_predictions = q_values[list(action_indices)]
       critic_loss = torch.mean(F.mse_loss(value_predictions, return_))
       self.minimize_with_clipping(self._q_values_layer, self._critic_optimizer,
                                   critic_loss)
@@ -454,19 +449,19 @@ class PolicyGradient(rl_agent.AbstractAgent):
           baseline=baseline,
           actions=action,
           returns=return_)
-      self.minimize_with_clipping(self._baseline_layer, self._pi_optimizer,
+      self.minimize_with_clipping(self._policy_logits_layer, self._pi_optimizer,
                                   pi_loss)
     else:
       q_values = self._q_values_layer(torso_out)
       pi_loss = self.pg_class.loss(
           policy_logits=self._policy_logits, action_values=q_values)
-      self.minimize_with_clipping(self._q_values_layer, self._pi_optimizer,
+      self.minimize_with_clipping(self._policy_logits_layer, self._pi_optimizer,
                                   pi_loss)
     self._last_pi_loss_value = pi_loss
     return pi_loss
 
   def get_weights(self):
-    variables = [m.weight for m in self._net_torso.model]
+    variables = [m[0].weight for m in self._net_torso.model]
     variables.append(self._policy_logits_layer.weight)
     if self._loss_class.__name__ == "BatchA2CLoss":
       variables.append(self._baseline_layer.weight)
@@ -490,27 +485,16 @@ class PolicyGradient(rl_agent.AbstractAgent):
     _ = self._kwargs.pop("self", None)
     copied_object = PolicyGradient(**self._kwargs)
 
-    net_torso = getattr(copied_object, "_net_torso")
-    policy_logits_layer = getattr(copied_object, "_policy_logits_layer")
-    if hasattr(copied_object, "_q_values_layer"):
-      q_values_layer = getattr(copied_object, "_q_values_layer")
-    if hasattr(copied_object, "_baseline_layer"):
-      baseline_layer = getattr(copied_object, "_baseline_layer")
-
     if copy_weights:
+      copied_object.policy_logits_network.load_state_dict(
+          self.policy_logits_network.state_dict()
+      )
+      copied_object._critic_network.load_state_dict(  # pylint: disable=protected-access
+          self._critic_network.state_dict()
+      )
+
       with torch.no_grad():
-        for layer in net_torso.model:
-          layer.weight *= (1 + sigma * torch.randn(layer.weight.shape))
-
-        policy_logits_layer.weight *= (
-            1 + sigma * torch.randn(policy_logits_layer.weight.shape))
-
-        if hasattr(copied_object, "_q_values_layer"):
-          q_values_layer.weight *= (
-              1 + sigma * torch.randn(q_values_layer.weight.shape))
-
-        if hasattr(copied_object, "_baseline_layer"):
-          baseline_layer.weight *= (
-              1 + sigma * torch.randn(baseline_layer.weight.shape))
+        for w in copied_object.get_weights():
+          w *= 1 + sigma * torch.randn_like(w)
 
     return copied_object

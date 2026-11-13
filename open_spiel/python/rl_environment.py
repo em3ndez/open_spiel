@@ -1,17 +1,16 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Reinforcement Learning (RL) Environment for Open Spiel.
 
 This module wraps Open Spiel Python interface providing an RL-friendly API. It
@@ -45,10 +44,6 @@ defaults to -2 (module level constant `SIMULTANEOUS_PLAYER_ID`).
 See open_spiel/python/examples/rl_example.py for example usages.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import collections
 
 import enum
@@ -58,6 +53,24 @@ import numpy as np
 import pyspiel
 
 SIMULTANEOUS_PLAYER_ID = pyspiel.PlayerId.SIMULTANEOUS
+
+
+# Custom exception classes for better error handling
+# pylint: disable=g-bad-exception-name
+class RLEnvironmentError(Exception):
+  """Base exception for RL environment errors."""
+
+
+class IllegalActionError(RLEnvironmentError):
+  """Raised when an illegal action is attempted."""
+
+
+class InvalidStateError(RLEnvironmentError):
+  """Raised when the environment is in an invalid state."""
+
+
+class InvalidParameterError(RLEnvironmentError):
+  """Raised when invalid parameters are provided."""
 
 
 class TimeStep(
@@ -151,6 +164,9 @@ class Environment(object):
                chance_event_sampler=None,
                observation_type=None,
                include_full_state=False,
+               mfg_distribution=None,
+               mfg_population=None,
+               enable_legality_check=False,
                **kwargs):
     """Constructor.
 
@@ -163,10 +179,31 @@ class Environment(object):
         default to INFORMATION_STATE unless the game doesn't provide it.
       include_full_state: whether or not to include the full serialized
         OpenSpiel state in the observations (sometimes useful for debugging).
+      mfg_distribution: the distribution over states if the game is a mean field
+        game.
+      mfg_population: The Mean Field Game population to consider.
+      enable_legality_check: Check the legality of the move before stepping.
       **kwargs: dict, additional settings passed to the Open Spiel game.
+
+    Raises:
+      InvalidParameterError: If discount is not in [0.0, 1.0] or other
+        parameter validation fails.
     """
+    # Validate parameters
+    if not isinstance(discount, (int, float)):
+      raise InvalidParameterError(
+          f"discount must be a number, got {type(discount).__name__}"
+      )
+    if not 0.0 <= discount <= 1.0:
+      raise InvalidParameterError(
+          f"discount must be in [0.0, 1.0], got {discount}"
+      )
+
     self._chance_event_sampler = chance_event_sampler or ChanceEventSampler()
     self._include_full_state = include_full_state
+    self._mfg_distribution = mfg_distribution
+    self._mfg_population = mfg_population
+    self._enable_legality_check = enable_legality_check
 
     if isinstance(game, str):
       if kwargs:
@@ -202,6 +239,21 @@ class Environment(object):
       if not self._game.get_type().provides_information_state_tensor:
         raise ValueError(f"information_state_tensor not supported by {game}")
     self._use_observation = (observation_type == ObservationType.OBSERVATION)
+
+    if self._game.get_type().dynamics == pyspiel.GameType.Dynamics.MEAN_FIELD:
+      if mfg_distribution is None:
+        raise InvalidParameterError(
+            "mfg_distribution is required for Mean Field Games but was None"
+        )
+      if mfg_population is None:
+        raise InvalidParameterError(
+            "mfg_population is required for Mean Field Games but was None"
+        )
+      if not (0 <= mfg_population < self._num_players):
+        raise InvalidParameterError(
+            f"mfg_population must be in [0, {self._num_players}), "
+            f"got {mfg_population}"
+        )
 
   def seed(self, seed=None):
     self._chance_event_sampler.seed(seed)
@@ -247,11 +299,40 @@ class Environment(object):
       observations["serialized_state"] = pyspiel.serialize_game_and_state(
           self._game, self._state)
 
+    # For gym environments
+    if hasattr(self._state, "last_info"):
+      observations["info"] = self._state.last_info
+
     return TimeStep(
         observations=observations,
         rewards=rewards,
         discounts=discounts,
         step_type=step_type)
+
+  def _check_legality(self, actions):
+    """Check if the given actions are legal.
+
+    Args:
+      actions: List of actions to validate.
+
+    Raises:
+      IllegalActionError: If any action is not in the legal actions list.
+    """
+    if self.is_turn_based:
+      legal_actions = self._state.legal_actions()
+      if actions[0] not in legal_actions:
+        raise IllegalActionError(
+            f"Illegal action {actions[0]} for current player. "
+            f"Legal actions are: {legal_actions}"
+        )
+    else:
+      for p in range(len(actions)):
+        legal_actions = self._state.legal_actions(p)
+        if legal_actions and actions[p] not in legal_actions:
+          raise IllegalActionError(
+              f"Illegal action {actions[p]} by player {p}. "
+              f"Legal actions are: {legal_actions}"
+          )
 
   def step(self, actions):
     """Updates the environment according to `actions` and returns a `TimeStep`.
@@ -277,12 +358,22 @@ class Environment(object):
         discount: list of discounts in the range [0, 1], or None if step_type is
           `StepType.FIRST`.
         step_type: A `StepType` value.
+
+    Raises:
+      InvalidParameterError: If the number of actions is not as expected.
     """
-    assert len(actions) == self.num_actions_per_step, (
-        "Invalid number of actions! Expected {}".format(
-            self.num_actions_per_step))
+    if len(actions) != self.num_actions_per_step:
+      raise InvalidParameterError(
+          f"Invalid number of actions. Expected {self.num_actions_per_step}, "
+          f"got {len(actions)}. For turn-based games pass a list with 1 "
+          f"action, for simultaneous games pass a list with {self.num_players} "
+          "actions (one per player)."
+      )
     if self._should_reset:
       return self.reset()
+
+    if self._enable_legality_check:
+      self._check_legality(actions)
 
     if self.is_turn_based:
       self._state.apply_action(actions[0])
@@ -306,7 +397,12 @@ class Environment(object):
         step_type: A `StepType` value.
     """
     self._should_reset = False
-    self._state = self._game.new_initial_state()
+    if (self._game.get_type().dynamics ==
+        pyspiel.GameType.Dynamics.MEAN_FIELD and self._num_players > 1):
+      self._state = self._game.new_initial_state_for_population(
+          self._mfg_population)
+    else:
+      self._state = self._game.new_initial_state()
     self._sample_external_events()
 
     observations = {
@@ -334,9 +430,18 @@ class Environment(object):
 
   def _sample_external_events(self):
     """Sample chance events until we get to a decision node."""
-    while self._state.is_chance_node():
-      outcome = self._chance_event_sampler(self._state)
-      self._state.apply_action(outcome)
+    while self._state.is_chance_node() or (self._state.current_player()
+                                           == pyspiel.PlayerId.MEAN_FIELD):
+      if self._state.is_chance_node():
+        outcome = self._chance_event_sampler(self._state)
+        self._state.apply_action(outcome)
+      if self._state.current_player() == pyspiel.PlayerId.MEAN_FIELD:
+        dist_to_register = self._state.distribution_support()
+        dist = [
+            self._mfg_distribution.value_str(str_state, default_value=0.0)
+            for str_state in dist_to_register
+        ]
+        self._state.update_distribution(dist)
 
   def observation_spec(self):
     """Defines the observation per player provided by the environment.
@@ -399,8 +504,10 @@ class Environment(object):
   # New RL calls for more advanced use cases (e.g. search + RL).
   @property
   def is_turn_based(self):
-    return self._game.get_type(
-    ).dynamics == pyspiel.GameType.Dynamics.SEQUENTIAL
+    return ((self._game.get_type().dynamics
+             == pyspiel.GameType.Dynamics.SEQUENTIAL) or
+            (self._game.get_type().dynamics
+             == pyspiel.GameType.Dynamics.MEAN_FIELD))
 
   @property
   def max_game_length(self):
@@ -415,11 +522,42 @@ class Environment(object):
     return self._game
 
   def set_state(self, new_state):
-    """Updates the game state."""
-    assert new_state.get_game() == self.game, (
-        "State must have been created by the same game.")
+    """Updates the game state.
+
+    Args:
+      new_state: The new state to set.
+
+    Raises:
+      InvalidStateError: If the state was not created by the same game.
+    """
+    if new_state.get_game() != self.game:
+      raise InvalidStateError(
+          "State must have been created by the same game. "
+          f"Expected game: {self.game.get_type().short_name}, "
+          f"got state from game: {new_state.get_game().get_type().short_name}"
+      )
     self._state = new_state
 
   @property
   def get_state(self):
     return self._state
+
+  @property
+  def mfg_distribution(self):
+    return self._mfg_distribution
+
+  def update_mfg_distribution(self, mfg_distribution):
+    """Updates the distribution over the states of the mean field game.
+
+    Args:
+      mfg_distribution: The new MFG distribution to set.
+
+    Raises:
+      InvalidStateError: If the game is not a Mean Field Game.
+    """
+    if self._game.get_type().dynamics != pyspiel.GameType.Dynamics.MEAN_FIELD:
+      raise InvalidStateError(
+          "update_mfg_distribution() can only be called on Mean Field Games. "
+          f"This game has dynamics: {self._game.get_type().dynamics}"
+      )
+    self._mfg_distribution = mfg_distribution

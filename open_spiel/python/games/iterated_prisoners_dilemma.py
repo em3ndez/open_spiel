@@ -1,10 +1,10 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,7 +24,7 @@ import numpy as np
 import pyspiel
 
 _NUM_PLAYERS = 2
-_DEFAULT_PARAMS = {"termination_probability": 0.125}
+_DEFAULT_PARAMS = {"termination_probability": 0.125, "max_game_length": 9999}
 _PAYOFF = [[5, 0], [10, 1]]
 
 _GAME_TYPE = pyspiel.GameType(
@@ -43,14 +43,6 @@ _GAME_TYPE = pyspiel.GameType(
     provides_observation_tensor=False,
     provides_factored_observation_string=False,
     parameter_specification=_DEFAULT_PARAMS)
-_GAME_INFO = pyspiel.GameInfo(
-    num_distinct_actions=2,
-    max_chance_outcomes=2,
-    num_players=2,
-    min_utility=0.,
-    max_utility=np.inf,
-    utility_sum=0.0,
-    max_game_length=9999)
 
 
 class Action(enum.IntEnum):
@@ -63,20 +55,25 @@ class Chance(enum.IntEnum):
   STOP = 1
 
 
-# Hold a list of created games to stop them being garbage-collected
-# Without this, pyspiel.load_game("turn_based_simultaneous_game(...)")
-# will return an unusable game (the Python class will be deleted).
-# TODO(author11) Fix the underlying issue and remove this
-_games = []
-
-
 class IteratedPrisonersDilemmaGame(pyspiel.Game):
   """The game, from which states and observers can be made."""
 
   # pylint:disable=dangerous-default-value
   def __init__(self, params=_DEFAULT_PARAMS):
-    super().__init__(_GAME_TYPE, _GAME_INFO, params)
-    _games.append(self)
+    max_game_length = params["max_game_length"]
+    super().__init__(
+        _GAME_TYPE,
+        pyspiel.GameInfo(
+            num_distinct_actions=2,
+            max_chance_outcomes=2,
+            num_players=2,
+            min_utility=np.min(_PAYOFF) * max_game_length,
+            max_utility=np.max(_PAYOFF) * max_game_length,
+            utility_sum=None,
+            max_game_length=max_game_length,
+        ),
+        params,
+    )
     self._termination_probability = params["termination_probability"]
 
   def new_initial_state(self):
@@ -96,6 +93,7 @@ class IteratedPrisonersDilemmaState(pyspiel.State):
   def __init__(self, game, termination_probability):
     """Constructor; should only be called by Game.new_initial_state."""
     super().__init__(game)
+    self._current_iteration = 1
     self._termination_probability = termination_probability
     self._is_chance = False
     self._game_over = False
@@ -129,8 +127,11 @@ class IteratedPrisonersDilemmaState(pyspiel.State):
     """Applies the specified action to the state."""
     # This is not called at simultaneous-move states.
     assert self._is_chance and not self._game_over
+    self._current_iteration += 1
     self._is_chance = False
     self._game_over = (action == Chance.STOP)
+    if self._current_iteration > self.get_game().max_game_length():
+      self._game_over = True
 
   def _apply_actions(self, actions):
     """Applies the specified actions (per player) to the state."""
@@ -186,8 +187,11 @@ class IteratedPrisonersDilemmaObserver:
 
   def string_from(self, state, player):
     """Observation of `state` from the PoV of `player`, as a string."""
-    return (f"us:{state.action_history_string(player)} "
-            f"op:{state.action_history_string(1 - player)}")
+    if self.iig_obs_type.public_info:
+      return (f"us:{state.action_history_string(player)} "
+              f"op:{state.action_history_string(1 - player)}")
+    else:
+      return None
 
 
 # Register the game with the OpenSpiel library

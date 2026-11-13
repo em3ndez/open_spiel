@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,13 +21,14 @@
 #include <random>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/algorithm/container.h"
-#include "open_spiel/abseil-cpp/absl/random/distributions.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_format.h"
-#include "open_spiel/abseil-cpp/absl/time/clock.h"
-#include "open_spiel/abseil-cpp/absl/time/time.h"
+#include "absl/algorithm/container.h"
+#include "absl/random/distributions.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "open_spiel/spiel.h"
+#include "open_spiel/spiel_globals.h"
 #include "open_spiel/spiel_utils.h"
 
 namespace open_spiel {
@@ -111,8 +112,9 @@ double SearchNode::PUCTValue(int parent_explore_count, double uct_c) const {
 }
 
 bool SearchNode::CompareFinal(const SearchNode& b) const {
-  double out = (outcome.empty() ? 0 : outcome[player]);
-  double out_b = (b.outcome.empty() ? 0 : b.outcome[b.player]);
+  double out = (player >= 0 && player < outcome.size() ? outcome[player] : 0);
+  double out_b =
+      (b.player >= 0 && b.player < b.outcome.size() ? b.outcome[b.player] : 0);
   if (out != out_b) {
     return out < out_b;
   }
@@ -174,6 +176,15 @@ std::string SearchNode::ToString(const State& state) const {
       children.size());
 }
 
+Action SearchNode::SampleFromPrior(const State& state,
+                                   Evaluator* evaluator,
+                                   std::mt19937* rng) const {
+  std::unique_ptr<State> working_state = state.Clone();
+  ActionsAndProbs prior = evaluator->Prior(*working_state);
+  Action chosen_action = SampleAction(prior, *rng).first;
+  return chosen_action;
+}
+
 std::vector<double> dirichlet_noise(int count, double alpha,
                                     std::mt19937* rng) {
   std::vector<double> noise;
@@ -195,9 +206,11 @@ MCTSBot::MCTSBot(const Game& game, std::shared_ptr<Evaluator> evaluator,
                  double uct_c, int max_simulations, int64_t max_memory_mb,
                  bool solve, int seed, bool verbose,
                  ChildSelectionPolicy child_selection_policy,
-                 double dirichlet_alpha, double dirichlet_epsilon)
+                 double dirichlet_alpha, double dirichlet_epsilon,
+                 bool dont_return_chance_node, double max_wall_clock_time)
     : uct_c_{uct_c},
       max_simulations_{max_simulations},
+      max_wall_clock_time_{max_wall_clock_time},
       max_nodes_((max_memory_mb << 20) / sizeof(SearchNode) + 1),
       nodes_(0),
       gc_limit_(MIN_GC_LIMIT),
@@ -206,6 +219,7 @@ MCTSBot::MCTSBot(const Game& game, std::shared_ptr<Evaluator> evaluator,
       max_utility_(game.MaxUtility()),
       dirichlet_alpha_(dirichlet_alpha),
       dirichlet_epsilon_(dirichlet_epsilon),
+      dont_return_chance_node_(dont_return_chance_node),
       rng_(seed),
       child_selection_policy_(child_selection_policy),
       evaluator_(evaluator) {
@@ -219,32 +233,36 @@ MCTSBot::MCTSBot(const Game& game, std::shared_ptr<Evaluator> evaluator,
 Action MCTSBot::Step(const State& state) {
   absl::Time start = absl::Now();
   std::unique_ptr<SearchNode> root = MCTSearch(state);
-  SPIEL_CHECK_GT(root->children.size(), 0);
 
-  const SearchNode& best = root->BestChild();
+  if (max_simulations_ <= 1) {
+    // sample from prior
+    return root->SampleFromPrior(state, evaluator_.get(), &rng_);
+  } else {
+    // return best action
+    const SearchNode& best = root->BestChild();
 
-  if (verbose_) {
-    double seconds = absl::ToDoubleSeconds(absl::Now() - start);
-    std::cerr
-        << absl::StrFormat(
-               ("Finished %d sims in %.3f secs, %.1f sims/s, "
-                "tree size: %d nodes / %d mb."),
-               root->explore_count, seconds, (root->explore_count / seconds),
-               nodes_, MemoryUsedMb(nodes_))
-        << std::endl;
-    std::cerr << "Root:" << std::endl;
-    std::cerr << root->ToString(state) << std::endl;
-    std::cerr << "Children:" << std::endl;
-    std::cerr << root->ChildrenStr(state) << std::endl;
-    if (!best.children.empty()) {
-      std::unique_ptr<State> chosen_state = state.Clone();
-      chosen_state->ApplyAction(best.action);
-      std::cerr << "Children of chosen:" << std::endl;
-      std::cerr << best.ChildrenStr(*chosen_state) << std::endl;
+    if (verbose_) {
+      double seconds = absl::ToDoubleSeconds(absl::Now() - start);
+      std::cerr << absl::StrFormat(
+                       ("Finished %d sims in %.3f secs, %.1f sims/s, "
+                        "tree size: %d nodes / %d mb."),
+                       root->explore_count, seconds,
+                       (root->explore_count / seconds), nodes_,
+                       MemoryUsedMb(nodes_))
+                << std::endl;
+      std::cerr << "Root:" << std::endl;
+      std::cerr << root->ToString(state) << std::endl;
+      std::cerr << "Children:" << std::endl;
+      std::cerr << root->ChildrenStr(state) << std::endl;
+      if (!best.children.empty()) {
+        std::unique_ptr<State> chosen_state = state.Clone();
+        chosen_state->ApplyAction(best.action);
+        std::cerr << "Children of chosen:" << std::endl;
+        std::cerr << best.ChildrenStr(*chosen_state) << std::endl;
+      }
     }
+    return best.action;
   }
-
-  return best.action;
 }
 
 std::pair<ActionsAndProbs, Action> MCTSBot::StepWithPolicy(const State& state) {
@@ -258,7 +276,8 @@ std::unique_ptr<State> MCTSBot::ApplyTreePolicy(
   visit_path->push_back(root);
   std::unique_ptr<State> working_state = state.Clone();
   SearchNode* current_node = root;
-  while (!working_state->IsTerminal() && current_node->explore_count > 0) {
+  while ((!working_state->IsTerminal() && current_node->explore_count > 0) ||
+         (working_state->IsChanceNode() && dont_return_chance_node_)) {
     if (current_node->children.empty()) {
       // For a new node, initialize its state, then choose a child as normal.
       ActionsAndProbs legal_actions = evaluator_->Prior(*working_state);
@@ -281,41 +300,50 @@ std::unique_ptr<State> MCTSBot::ApplyTreePolicy(
       nodes_ += current_node->children.capacity();
     }
 
-    SearchNode* chosen_child = nullptr;
-    if (working_state->IsChanceNode()) {
-      // For chance nodes, rollout according to chance node's probability
-      // distribution
-      Action chosen_action =
-          SampleAction(working_state->ChanceOutcomes(), rng_).first;
-
-      for (SearchNode& child : current_node->children) {
-        if (child.action == chosen_action) {
-          chosen_child = &child;
-          break;
-        }
-      }
+    Action selected_action;
+    if (current_node->children.empty()) {
+      // no children, sample from prior
+      selected_action = current_node->SampleFromPrior(state, evaluator_.get(),
+                                                      &rng_);
     } else {
-      // Otherwise choose node with largest UCT value.
-      double max_value = -std::numeric_limits<double>::infinity();
-      for (SearchNode& child : current_node->children) {
-        double val;
-        switch (child_selection_policy_) {
-          case ChildSelectionPolicy::UCT:
-            val = child.UCTValue(current_node->explore_count, uct_c_);
+      // look at children
+      SearchNode* chosen_child = nullptr;
+      if (working_state->IsChanceNode()) {
+        // For chance nodes, rollout according to chance node's probability
+        // distribution
+        Action chosen_action =
+            SampleAction(working_state->ChanceOutcomes(), rng_).first;
+
+        for (SearchNode& child : current_node->children) {
+          if (child.action == chosen_action) {
+            chosen_child = &child;
             break;
-          case ChildSelectionPolicy::PUCT:
-            val = child.PUCTValue(current_node->explore_count, uct_c_);
-            break;
+          }
         }
-        if (val > max_value) {
-          max_value = val;
-          chosen_child = &child;
+      } else {
+        // Otherwise choose node with largest UCT value.
+        double max_value = -std::numeric_limits<double>::infinity();
+        for (SearchNode& child : current_node->children) {
+          double val;
+          switch (child_selection_policy_) {
+            case ChildSelectionPolicy::UCT:
+              val = child.UCTValue(current_node->explore_count, uct_c_);
+              break;
+            case ChildSelectionPolicy::PUCT:
+              val = child.PUCTValue(current_node->explore_count, uct_c_);
+              break;
+          }
+          if (val > max_value) {
+            max_value = val;
+            chosen_child = &child;
+          }
         }
       }
+      selected_action = chosen_child->action;
+      current_node = chosen_child;
     }
 
-    working_state->ApplyAction(chosen_child->action);
-    current_node = chosen_child;
+    working_state->ApplyAction(selected_action);
     visit_path->push_back(current_node);
   }
 
@@ -323,14 +351,19 @@ std::unique_ptr<State> MCTSBot::ApplyTreePolicy(
 }
 
 std::unique_ptr<SearchNode> MCTSBot::MCTSearch(const State& state) {
-  Player player_id = state.CurrentPlayer();
   nodes_ = 1;
   gc_limit_ = MIN_GC_LIMIT;
-  auto root = std::make_unique<SearchNode>(kInvalidAction, player_id, 1);
+  auto root = std::make_unique<SearchNode>(kInvalidAction,
+                                           state.CurrentPlayer(), 1);
   std::vector<SearchNode*> visit_path;
   std::vector<double> returns;
   visit_path.reserve(64);
-  for (int i = 0; i < max_simulations_; ++i) {
+  absl::Time start_time = absl::Now();
+  for (int i = 0; (max_wall_clock_time_ > 0
+                       ? absl::ToDoubleSeconds(absl::Now() - start_time) <
+                             max_wall_clock_time_
+                       : i < max_simulations_);
+       ++i) {
     visit_path.clear();
     returns.clear();
 
@@ -348,12 +381,18 @@ std::unique_ptr<SearchNode> MCTSBot::MCTSearch(const State& state) {
     }
 
     // Propagate values back.
-    for (auto it = visit_path.rbegin(); it != visit_path.rend(); ++it) {
-      SearchNode* node = *it;
+    while (!visit_path.empty()) {
+      int decision_node_idx = visit_path.size() - 1;
+      SearchNode* node = visit_path[decision_node_idx];
 
-      node->total_reward +=
-          returns[node->player == kChancePlayerId ? player_id : node->player];
+      // If it's a chance node, find the parent player id.
+      while (visit_path[decision_node_idx]->player == kChancePlayerId) {
+        decision_node_idx--;
+      }
+
+      node->total_reward += returns[visit_path[decision_node_idx]->player];
       node->explore_count += 1;
+      visit_path.pop_back();
 
       // Back up solved results as well.
       if (solved && !node->children.empty()) {

@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,7 +17,7 @@
 
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/synchronization/mutex.h"
+#include "absl/synchronization/mutex.h"
 #include "open_spiel/algorithms/alpha_zero_torch/vpnet.h"
 
 namespace open_spiel {
@@ -68,7 +68,7 @@ class DeviceManager {
 
   // Gives the device with the fewest outstanding requests.
   DeviceLoan Get(int requests, int device_id = -1) {
-    absl::MutexLock lock(&m_);
+    absl::MutexLock lock(m_);
     if (device_id < 0) {
       // The starting device changes depending on if we are allowed to
       // use the first device or not.
@@ -94,7 +94,7 @@ class DeviceManager {
 
  private:
   void Return(int device_id, int requests) {
-    absl::MutexLock lock(&m_);
+    absl::MutexLock lock(m_);
     devices[device_id].requests -= requests;
   }
 

@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2019 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,16 +20,17 @@
 #include <utility>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/strings/numbers.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_cat.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_join.h"
-#include "open_spiel/abseil-cpp/absl/strings/str_split.h"
-#include "open_spiel/abseil-cpp/absl/strings/substitute.h"
+#include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/substitute.h"
 #include "open_spiel/spiel_utils.h"
 
 namespace open_spiel {
 namespace crowd_modelling {
 namespace {
+inline constexpr float kEpsilon = 1e-25;
 
 // Facts about the game.
 const GameType kGameType{/*short_name=*/"mfg_crowd_modelling",
@@ -74,6 +75,8 @@ std::string StateToString(int x, int t, Player player_id, bool is_chance_init) {
 }
 
 REGISTER_SPIEL_GAME(kGameType, Factory);
+
+RegisterSingleTensorObserver single_tensor(kGameType.short_name);
 
 }  // namespace
 
@@ -131,12 +134,12 @@ void CrowdModellingState::DoApplyAction(Action action) {
   } else if (current_player_ == kChancePlayerId) {
     x_ = (x_ + kActionToMove.at(action) + size_) % size_;
     ++t_;
-    current_player_ = 0;
+    current_player_ = kMeanFieldPlayerId;
   } else {
     SPIEL_CHECK_EQ(current_player_, 0);
     x_ = (x_ + kActionToMove.at(action) + size_) % size_;
     last_action_ = action;
-    current_player_ = kMeanFieldPlayerId;
+    current_player_ = kChancePlayerId;
   }
 }
 
@@ -152,7 +155,7 @@ std::vector<std::string> CrowdModellingState::DistributionSupport() {
   std::vector<std::string> support;
   support.reserve(size_);
   for (int x = 0; x < size_; ++x) {
-    support.push_back(StateToString(x, t_, 0, false));
+    support.push_back(StateToString(x, t_, kMeanFieldPlayerId, false));
   }
   return support;
 }
@@ -162,7 +165,7 @@ void CrowdModellingState::UpdateDistribution(
   SPIEL_CHECK_EQ(current_player_, kMeanFieldPlayerId);
   SPIEL_CHECK_EQ(distribution.size(), size_);
   distribution_ = distribution;
-  current_player_ = kChancePlayerId;
+  current_player_ = kDefaultPlayerId;
 }
 
 bool CrowdModellingState::IsTerminal() const { return t_ >= horizon_; }
@@ -173,7 +176,7 @@ std::vector<double> CrowdModellingState::Rewards() const {
   }
   double r_x = 1 - 1.0 * std::abs(x_ - size_ / 2) / (size_ / 2);
   double r_a = -1.0 * std::abs(kActionToMove.at(last_action_)) / size_;
-  double r_mu = -std::log(distribution_[x_]);
+  double r_mu = -std::log(distribution_[x_]+kEpsilon);
   return {r_x + r_a + r_mu};
 }
 
@@ -270,7 +273,7 @@ std::unique_ptr<State> CrowdModellingGame::DeserializeState(
     SPIEL_CHECK_TRUE(absl::SimpleAtod(v, &parsed_weight));
     distribution.push_back(parsed_weight);
   }
-  return absl::make_unique<CrowdModellingState>(
+  return std::make_unique<CrowdModellingState>(
       shared_from_this(), size_, horizon_, current_player, is_chance_init, x, t,
       last_action, return_value, distribution);
 }

@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,9 +21,9 @@
 #include <unordered_map>
 #include <vector>
 
-#include "open_spiel/abseil-cpp/absl/random/distributions.h"
-#include "open_spiel/abseil-cpp/absl/strings/string_view.h"
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
+#include "absl/random/distributions.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/optional.h"
 #include "open_spiel/policy.h"
 #include "open_spiel/spiel.h"
 
@@ -135,6 +135,7 @@ class CFRAveragePolicy : public Policy {
   ActionsAndProbs GetStatePolicy(const State& state,
                                  Player player) const override;
   ActionsAndProbs GetStatePolicy(const std::string& info_state) const override;
+  TabularPolicy AsTabular() const;
 
  private:
   const CFRInfoStateValuesTable& info_states_;
@@ -207,7 +208,7 @@ class CFRSolverBase {
   // Note: This can be quite large.
   TabularPolicy TabularAveragePolicy() const {
     CFRAveragePolicy policy(info_states_, nullptr);
-    return TabularPolicy(*game_, policy);
+    return policy.AsTabular();
   }
 
   // Computes the current policy, containing the policy for all players.
@@ -215,6 +216,11 @@ class CFRSolverBase {
   // the CFRSolver object.
   std::shared_ptr<Policy> CurrentPolicy() const {
     return std::make_shared<CFRCurrentPolicy>(info_states_, nullptr);
+  }
+
+  TabularPolicy TabularCurrentPolicy() const {
+    CFRCurrentPolicy policy(info_states_, nullptr);
+    return policy.AsTabular();
   }
 
   CFRInfoStateValuesTable& InfoStateValuesTable() { return info_states_; }

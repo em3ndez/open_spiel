@@ -1,10 +1,10 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,12 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
 """Provides tools to evaluate bots against specific scenarios."""
 
+import dataclasses
 from typing import Text, List
 from absl import logging
-import dataclasses
 
 
 @dataclasses.dataclass
@@ -95,7 +94,7 @@ def play_bot_in_scenarios(game, bots, scenarios=None):
       if action == expected_action:
         actual_prob = prob
         break
-    score = 1 - abs(actual_prob - scenario.expected_prob)
+    score = 1 - abs(actual_prob - scenario.expected_prob)  # pyrefly: ignore[unbound-name]
     results.append((scenario.name, score, scenario.expected_action_str,
                     scenario.expected_prob, actual_prob))
     total_score += score

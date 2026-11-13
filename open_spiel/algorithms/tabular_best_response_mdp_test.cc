@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,7 +16,7 @@
 
 #include <memory>
 
-#include "open_spiel/abseil-cpp/absl/types/optional.h"
+#include "absl/types/optional.h"
 #include "open_spiel/algorithms/cfr.h"
 #include "open_spiel/algorithms/tabular_exploitability.h"
 #include "open_spiel/policy.h"
@@ -29,8 +29,8 @@ namespace {
 constexpr int kNumLiarsDiceCFRIterations = 1;
 constexpr double kFloatTolerance = 1e-12;
 
-double NashConvTest(const std::string &game_string, const Policy &policy,
-                    absl::optional<double> expected_nash_conv = absl::nullopt) {
+double NashConvTest(const std::string& game_string, const Policy& policy,
+                    std::optional<double> expected_nash_conv = std::nullopt) {
   std::shared_ptr<const Game> game = LoadGame(game_string);
   TabularBestResponseMDP tbr(*game, policy);
   TabularBestResponseMDPInfo br_info = tbr.NashConv();
@@ -54,6 +54,20 @@ void LeducNashConvTests() {
   FirstActionPolicy first_action_policy;
   NashConvTest("leduc_poker", first_action_policy, 2.0);
 }
+
+void OnlyFirstPlayerTests() {
+  UniformPolicy uniform_policy;
+
+  for (std::string game_string : { "leduc_poker", "kuhn_poker(players=3)",
+                                   "matrix_pd", "goofspiel(num_cards=3)" })
+  {
+    std::shared_ptr<const Game> game = LoadGame(game_string);
+    TabularBestResponseMDP tbr(*game, uniform_policy);
+    TabularBestResponseMDPInfo br_info = tbr.ComputeBestResponse(0);
+    SPIEL_CHECK_GT(br_info.br_values[0], 0);
+  }
+}
+
 
 void KuhnLeduc3pTests() {
   UniformPolicy uniform_policy;
@@ -98,40 +112,30 @@ void GoofspielGameTests() {
   UniformPolicy uniform_policy;
   FirstActionPolicy first_action_policy;
 
-  // There The values in Goofspiel are inconsistent across BR implementations.
-  // This gets: 1.333333333333333 1.666666666666667
-  {
-    std::shared_ptr<const Game> game = LoadGame(
-        "turn_based_simultaneous_game(game=goofspiel(num_cards=3))");
-    double value = NashConv(*game, uniform_policy, true);
-    printf("%0.15lf\n", value);
-    double value2 = NashConv(*game, first_action_policy, true);
-    printf("%0.15lf\n", value2);
+  std::vector<std::string> game_strings = {
+    "goofspiel(num_cards=3)",
+    "goofspiel(num_cards=3,points_order=descending)",
+  };
+
+  for (const std::string& game_string : game_strings) {
+    std::string tbs_game_string =
+        absl::StrCat("turn_based_simultaneous_game(game=", game_string, ")");
+    std::shared_ptr<const Game> tbs_game = LoadGame(tbs_game_string);
+    double uniform_nash_conv = NashConv(*tbs_game, uniform_policy, true);
+    double first_action_nash_conv = NashConv(*tbs_game, first_action_policy,
+                                             true);
+
+    std::shared_ptr<const Game> game = LoadGame(game_string);
+    TabularBestResponseMDP tbr1(*game, uniform_policy);
+    TabularBestResponseMDPInfo br_info = tbr1.NashConv();
+    SPIEL_CHECK_FLOAT_NEAR(br_info.nash_conv, uniform_nash_conv,
+                           kFloatTolerance);
+
+    TabularBestResponseMDP tbr2(*game, first_action_policy);
+    TabularBestResponseMDPInfo br_info2 = tbr2.NashConv();
+    SPIEL_CHECK_FLOAT_NEAR(br_info2.nash_conv, first_action_nash_conv,
+                           kFloatTolerance);
   }
-
-  {
-    // This gets: 1.33333 2.0
-    std::shared_ptr<const Game> game = LoadGame(
-        "turn_based_simultaneous_game("
-        "game=goofspiel(num_cards=3,points_order=descending))");
-    double value = NashConv(*game, uniform_policy, true);
-    printf("%0.15lf\n", value);
-    double value2 = NashConv(*game, first_action_policy, true);
-    printf("%0.15lf\n", value2);
-  }
-
-  /* These get much lower values. I suspect some issues with the observation
-   * string.
-  std::shared_ptr<const Game> game = LoadGame("goofspiel(num_cards=3)");
-  std::shared_ptr<const Game> game = LoadGame("goofspiel(num_cards=3,points_order=descending)");
-  TabularBestResponseMDP tbr1(*game, uniform_policy);
-  TabularBestResponseMDPInfo br_info = tbr1.NashConv();
-  SPIEL_CHECK_FLOAT_NEAR(br_info.nash_conv, 0.0, kFloatTolerance);
-
-  TabularBestResponseMDP tbr2(*game, first_action_policy);
-  TabularBestResponseMDPInfo br_info2 = tbr2.NashConv();
-  SPIEL_CHECK_FLOAT_NEAR(br_info2.nash_conv, 2.0, kFloatTolerance);
-  */
 }
 
 void OshiZumoGameTests() {
@@ -202,6 +206,7 @@ int main(int argc, char **argv) {
   open_spiel::algorithms::TicTacToeTests();
   open_spiel::algorithms::KuhnNashConvTests();
   open_spiel::algorithms::LeducNashConvTests();
+  open_spiel::algorithms::OnlyFirstPlayerTests();
   open_spiel::algorithms::KuhnLeduc3pTests();
   open_spiel::algorithms::RPSGameTests();
   open_spiel::algorithms::OshiZumoGameTests();

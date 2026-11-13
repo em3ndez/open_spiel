@@ -1,10 +1,10 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,33 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Lint as: python3
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """An MCTS Evaluator for an AlphaZero model."""
 
+from typing import Any
+
+import jax  # pyrefly: ignore[missing-import]
 import numpy as np
 
 from open_spiel.python.algorithms import mcts
 import pyspiel
 from open_spiel.python.utils import lru_cache
 
+# pylint: disable=g-bare-generic
+
 
 class AlphaZeroEvaluator(mcts.Evaluator):
   """An AlphaZero MCTS Evaluator."""
 
-  def __init__(self, game, model, cache_size=2**16):
+  def __init__(
+      self, game: pyspiel.Game, model: Any, cache_size: int = 2**16
+  ) -> None:
     """An AlphaZero MCTS Evaluator."""
     if game.num_players() != 2:
       raise ValueError("Game must be for two players.")
@@ -47,37 +40,41 @@ class AlphaZeroEvaluator(mcts.Evaluator):
       raise ValueError("Game must have terminal rewards.")
     if game_type.dynamics != pyspiel.GameType.Dynamics.SEQUENTIAL:
       raise ValueError("Game must have sequential turns.")
-    if game_type.chance_mode != pyspiel.GameType.ChanceMode.DETERMINISTIC:
-      raise ValueError("Game must be deterministic.")
 
-    self._model = model
+    self._model = model  # nn.cached_partial?
     self._cache = lru_cache.LRUCache(cache_size)
 
-  def cache_info(self):
+  def cache_info(self) -> lru_cache.CacheInfo:
     return self._cache.info()
 
-  def clear_cache(self):
+  def clear_cache(self) -> None:
+    # Clear all compilation and staging caches.
+    jax.clear_caches()
     self._cache.clear()
 
-  def _inference(self, state):
+  def _inference(self, state: pyspiel.State) -> tuple:
+    """Returns the value and policy for the given state."""
     # Make a singleton batch
-    obs = np.expand_dims(state.observation_tensor(), 0)
-    mask = np.expand_dims(state.legal_actions_mask(), 0)
+    obs = np.asarray(state.observation_tensor())
+    mask = np.asarray(state.legal_actions_mask())
 
-    # ndarray isn't hashable
+    # np.ndarray isn't hashable
     cache_key = obs.tobytes() + mask.tobytes()
 
     value, policy = self._cache.make(
-        cache_key, lambda: self._model.inference(obs, mask))
+        cache_key, lambda: self._model.inference(obs, mask)
+    )
+    return value, policy
 
-    return value[0, 0], policy[0]  # Unpack batch
-
-  def evaluate(self, state):
+  def evaluate(self, state: pyspiel.State) -> np.ndarray:
     """Returns a value for the given state."""
     value, _ = self._inference(state)
     return np.array([value, -value])
 
-  def prior(self, state):
-    """Returns the probabilities for all actions."""
-    _, policy = self._inference(state)
-    return [(action, policy[action]) for action in state.legal_actions()]
+  def prior(self, state: pyspiel.State) -> list[tuple[int, float]]:
+    if state.is_chance_node():
+      return state.chance_outcomes()
+    else:
+      # Returns the probabilities for all actions.
+      _, policy = self._inference(state)
+      return [(action, policy[action]) for action in state.legal_actions()]

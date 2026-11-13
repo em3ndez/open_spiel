@@ -39,7 +39,7 @@ History() = []
 HistoryString() = ""
 IsChanceNode() = True
 IsSimultaneousNode() = False
-CurrentPlayer() = PlayerId.CHANCE
+CurrentPlayer() = -1
 InformationStateString(0) = "p0"
 InformationStateString(1) = "p1"
 InformationStateTensor(0).player: ◉◯
@@ -63,7 +63,7 @@ ObservationTensor(0).pot_contribution: ◉◉
 ObservationTensor(1).player: ◯◉
 ObservationTensor(1).private_card: ◯◯◯
 ObservationTensor(1).pot_contribution: ◉◉
-ChanceOutcomes() = [(0, 0.3333333333333333), (1, 0.3333333333333333), (2, 0.3333333333333333)]
+ChanceOutcomes() = [(0,0.333333), (1,0.333333), (2,0.333333)]
 LegalActions() = [0, 1, 2]
 StringLegalActions() = ["Deal:0", "Deal:1", "Deal:2"]
 
@@ -77,7 +77,7 @@ History() = [1]
 HistoryString() = "1"
 IsChanceNode() = True
 IsSimultaneousNode() = False
-CurrentPlayer() = PlayerId.CHANCE
+CurrentPlayer() = -1
 InformationStateString(0) = "p0 card:1"
 InformationStateString(1) = "p1"
 InformationStateTensor(0).player: ◉◯
@@ -101,7 +101,7 @@ ObservationTensor(0).pot_contribution: ◉◉
 ObservationTensor(1).player: ◯◉
 ObservationTensor(1).private_card: ◯◯◯
 ObservationTensor(1).pot_contribution: ◉◉
-ChanceOutcomes() = [(0, 0.5), (2, 0.5)]
+ChanceOutcomes() = [(0,0.5), (2,0.5)]
 LegalActions() = [0, 2]
 StringLegalActions() = ["Deal:0", "Deal:2"]
 
@@ -139,8 +139,8 @@ ObservationTensor(0).pot_contribution: ◉◉
 ObservationTensor(1).player: ◯◉
 ObservationTensor(1).private_card: ◯◯◉
 ObservationTensor(1).pot_contribution: ◉◉
-Rewards() = [0.0, 0.0]
-Returns() = [0.0, 0.0]
+Rewards() = [0, 0]
+Returns() = [0, 0]
 LegalActions() = [0, 1]
 StringLegalActions() = ["Pass", "Bet"]
 
@@ -178,8 +178,8 @@ ObservationTensor(0).pot_contribution: ◉◉
 ObservationTensor(1).player: ◯◉
 ObservationTensor(1).private_card: ◯◯◉
 ObservationTensor(1).pot_contribution: ◉◉
-Rewards() = [0.0, 0.0]
-Returns() = [0.0, 0.0]
+Rewards() = [0, 0]
+Returns() = [0, 0]
 LegalActions() = [0, 1]
 StringLegalActions() = ["Pass", "Bet"]
 
@@ -193,7 +193,7 @@ History() = [1, 2, 0, 0]
 HistoryString() = "1, 2, 0, 0"
 IsChanceNode() = False
 IsSimultaneousNode() = False
-CurrentPlayer() = PlayerId.TERMINAL
+CurrentPlayer() = -4
 InformationStateString(0) = "p0 card:1 pp"
 InformationStateString(1) = "p1 card:2 pp"
 InformationStateTensor(0).player: ◉◯
@@ -217,5 +217,5 @@ ObservationTensor(0).pot_contribution: ◉◉
 ObservationTensor(1).player: ◯◉
 ObservationTensor(1).private_card: ◯◯◉
 ObservationTensor(1).pot_contribution: ◉◉
-Rewards() = [-1.0, 1.0]
-Returns() = [-1.0, 1.0]
+Rewards() = [-1, 1]
+Returns() = [-1, 1]

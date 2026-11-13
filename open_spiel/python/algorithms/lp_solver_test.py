@@ -1,10 +1,10 @@
-# Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+# Copyright 2019 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,11 +14,10 @@
 
 """Tests for LP solvers."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from unittest import mock
 
 from absl.testing import absltest
+import cvxpy as cp
 import numpy as np
 
 from open_spiel.python.algorithms import lp_solver
@@ -91,6 +90,36 @@ class LPSolversTest(absltest.TestCase):
     self.assertAlmostEqual(p0_sol_val, 0.0)
     self.assertAlmostEqual(p1_sol_val, 0.0)
 
+  def test_solve_propagates_solver_error(self):
+    lp = lp_solver.LinearProgram(lp_solver.ObjectiveType.OBJ_MAX)
+    lp.add_or_reuse_variable("x", lb=0.0, ub=1.0)
+    lp.set_obj_coeff("x", 1.0)
+    with mock.patch.object(
+        cp.Problem, "solve", side_effect=cp.SolverError("solver failed")
+    ):
+      with self.assertRaises(cp.SolverError):
+        lp.solve()
+
+  def test_solve_returns_none_when_infeasible(self):
+    lp = lp_solver.LinearProgram(lp_solver.ObjectiveType.OBJ_MAX)
+    lp.add_or_reuse_variable("x", lb=1.0, ub=0.0)  # 1 <= x <= 0
+    lp.set_obj_coeff("x", 1.0)
+    self.assertIsNone(lp.solve())
+
+  def test_solve_returns_none_when_unbounded(self):
+    lp = lp_solver.LinearProgram(lp_solver.ObjectiveType.OBJ_MAX)
+    lp.add_or_reuse_variable("x", lb=0.0)  # max x, x >= 0
+    lp.set_obj_coeff("x", 1.0)
+    self.assertIsNone(lp.solve())
+
+  def test_solve_zero_sum_matrix_game_raises_when_lp_has_no_solution(self):
+    game = pyspiel.create_matrix_game(
+        [[0.0, -1.0], [1.0, 0.0]], [[0.0, 1.0], [-1.0, 0.0]]
+    )
+    with mock.patch.object(lp_solver.LinearProgram, "solve", return_value=None):
+      with self.assertRaisesRegex(RuntimeError, "no solution"):
+        lp_solver.solve_zero_sum_matrix_game(game)
+
   def _assert_dominated(self, *args, **kwargs):
     self.assertTrue(lp_solver.is_dominated(*args, **kwargs))
 
@@ -98,65 +127,160 @@ class LPSolversTest(absltest.TestCase):
     self.assertFalse(lp_solver.is_dominated(*args, **kwargs))
 
   def test_dominance(self):
-    self._assert_undominated(0, [[1., 1.], [2., 0.], [0., 2.]], 0,
-                             lp_solver.DOMINANCE_STRICT)
-    self._assert_undominated(0, [[1., 1.], [2., 0.], [0., 2.]], 0,
-                             lp_solver.DOMINANCE_WEAK)
-    self._assert_dominated(0, [[1., 1.], [2.1, 0.], [0., 2.]], 0,
-                           lp_solver.DOMINANCE_STRICT)
+    self._assert_undominated(
+        0,
+        [[1.0, 1.0], [2.0, 0.0], [0.0, 2.0]],
+        0,
+        lp_solver.DominanceType.DOMINANCE_STRICT,
+    )
+    self._assert_undominated(
+        0,
+        [[1.0, 1.0], [2.0, 0.0], [0.0, 2.0]],
+        0,
+        lp_solver.DominanceType.DOMINANCE_WEAK,
+    )
+    self._assert_dominated(
+        0,
+        [[1.0, 1.0], [2.1, 0.0], [0.0, 2.0]],
+        0,
+        lp_solver.DominanceType.DOMINANCE_STRICT,
+    )
 
-    self._assert_undominated(0, [[1., 1., 1.], [2., 0., 1.], [0., 2., 2.]], 0,
-                             lp_solver.DOMINANCE_STRICT)
-    self._assert_dominated(0, [[1., 1., 1.], [2., 0., 1.], [0., 2., 2.]], 0,
-                           lp_solver.DOMINANCE_WEAK)
-    self._assert_dominated(0, [[1., 1., 1.], [2., 0., 1.], [0., 2., 2.]], 0,
-                           lp_solver.DOMINANCE_VERY_WEAK)
+    self._assert_undominated(
+        0,
+        [[1.0, 1.0, 1.0], [2.0, 0.0, 1.0], [0.0, 2.0, 2.0]],
+        0,
+        lp_solver.DominanceType.DOMINANCE_STRICT,
+    )
+    self._assert_dominated(
+        0,
+        [[1.0, 1.0, 1.0], [2.0, 0.0, 1.0], [0.0, 2.0, 2.0]],
+        0,
+        lp_solver.DominanceType.DOMINANCE_WEAK,
+    )
+    self._assert_dominated(
+        0,
+        [[1.0, 1.0, 1.0], [2.0, 0.0, 1.0], [0.0, 2.0, 2.0]],
+        0,
+        lp_solver.DominanceType.DOMINANCE_VERY_WEAK,
+    )
 
-    self._assert_dominated(0, [[1., 1., 1.], [2.1, 0., 1.], [0., 2., 2.]], 0,
-                           lp_solver.DOMINANCE_STRICT)
-    self._assert_dominated(0, [[1., 1., 1.], [2.1, 0., 1.], [0., 2., 2.]], 0,
-                           lp_solver.DOMINANCE_WEAK)
-    self._assert_dominated(0, [[1., 1., 1.], [2.1, 0., 1.], [0., 2., 2.]], 0,
-                           lp_solver.DOMINANCE_VERY_WEAK)
+    self._assert_dominated(
+        0,
+        [[1.0, 1.0, 1.0], [2.1, 0.0, 1.0], [0.0, 2.0, 2.0]],
+        0,
+        lp_solver.DominanceType.DOMINANCE_STRICT,
+    )
+    self._assert_dominated(
+        0,
+        [[1.0, 1.0, 1.0], [2.1, 0.0, 1.0], [0.0, 2.0, 2.0]],
+        0,
+        lp_solver.DominanceType.DOMINANCE_WEAK,
+    )
+    self._assert_dominated(
+        0,
+        [[1.0, 1.0, 1.0], [2.1, 0.0, 1.0], [0.0, 2.0, 2.0]],
+        0,
+        lp_solver.DominanceType.DOMINANCE_VERY_WEAK,
+    )
 
-    self._assert_undominated(0, [[1., 1., 1.], [2., 0., 2.], [0., 2., 0.]], 0,
-                             lp_solver.DOMINANCE_STRICT)
-    self._assert_undominated(0, [[1., 1., 1.], [2., 0., 2.], [0., 2., 0.]], 0,
-                             lp_solver.DOMINANCE_WEAK)
-    self._assert_dominated(0, [[1., 1., 1.], [2., 0., 2.], [0., 2., 0.]], 0,
-                           lp_solver.DOMINANCE_VERY_WEAK)
+    self._assert_undominated(
+        0,
+        [[1.0, 1.0, 1.0], [2.0, 0.0, 2.0], [0.0, 2.0, 0.0]],
+        0,
+        lp_solver.DominanceType.DOMINANCE_STRICT,
+    )
+    self._assert_undominated(
+        0,
+        [[1.0, 1.0, 1.0], [2.0, 0.0, 2.0], [0.0, 2.0, 0.0]],
+        0,
+        lp_solver.DominanceType.DOMINANCE_WEAK,
+    )
+    self._assert_dominated(
+        0,
+        [[1.0, 1.0, 1.0], [2.0, 0.0, 2.0], [0.0, 2.0, 0.0]],
+        0,
+        lp_solver.DominanceType.DOMINANCE_VERY_WEAK,
+    )
 
-    self._assert_undominated(0, [[1., 1.1, 1.], [2., 0., 2.], [0., 2., 0.]], 0,
-                             lp_solver.DOMINANCE_STRICT)
-    self._assert_undominated(0, [[1., 1.1, 1.], [2., 0., 2.], [0., 2., 0.]], 0,
-                             lp_solver.DOMINANCE_WEAK)
-    self._assert_undominated(0, [[1., 1.1, 1.], [2., 0., 2.], [0., 2., 0.]], 0,
-                             lp_solver.DOMINANCE_VERY_WEAK)
+    self._assert_undominated(
+        0,
+        [[1.0, 1.1, 1.0], [2.0, 0.0, 2.0], [0.0, 2.0, 0.0]],
+        0,
+        lp_solver.DominanceType.DOMINANCE_STRICT,
+    )
+    self._assert_undominated(
+        0,
+        [[1.0, 1.1, 1.0], [2.0, 0.0, 2.0], [0.0, 2.0, 0.0]],
+        0,
+        lp_solver.DominanceType.DOMINANCE_WEAK,
+    )
+    self._assert_undominated(
+        0,
+        [[1.0, 1.1, 1.0], [2.0, 0.0, 2.0], [0.0, 2.0, 0.0]],
+        0,
+        lp_solver.DominanceType.DOMINANCE_VERY_WEAK,
+    )
 
   def test_dominance_3player(self):
-    self._assert_undominated(0,
-                             [[[1., 1., 1.], [2., 0., 1.], [0., 2., 2.]]] * 3,
-                             1, lp_solver.DOMINANCE_STRICT)
-    self._assert_dominated(0, [[[1., 1., 1.], [2., 0., 1.], [0., 2., 2.]]] * 3,
-                           1, lp_solver.DOMINANCE_WEAK)
-    self._assert_dominated(0, [[[1., 1., 1.], [2., 0., 1.], [0., 2., 2.]]] * 3,
-                           1, lp_solver.DOMINANCE_VERY_WEAK)
+    self._assert_undominated(
+        0,
+        [[[1.0, 1.0, 1.0], [2.0, 0.0, 1.0], [0.0, 2.0, 2.0]]] * 3,
+        1,
+        lp_solver.DominanceType.DOMINANCE_STRICT,
+    )
+    self._assert_dominated(
+        0,
+        [[[1.0, 1.0, 1.0], [2.0, 0.0, 1.0], [0.0, 2.0, 2.0]]] * 3,
+        1,
+        lp_solver.DominanceType.DOMINANCE_WEAK,
+    )
+    self._assert_dominated(
+        0,
+        [[[1.0, 1.0, 1.0], [2.0, 0.0, 1.0], [0.0, 2.0, 2.0]]] * 3,
+        1,
+        lp_solver.DominanceType.DOMINANCE_VERY_WEAK,
+    )
 
   def test_dominance_prisoners_dilemma(self):
-    self._assert_dominated(0, pyspiel.load_matrix_game("matrix_pd"), 1,
-                           lp_solver.DOMINANCE_STRICT)
-    self._assert_undominated(1, pyspiel.load_matrix_game("matrix_pd"), 1,
-                             lp_solver.DOMINANCE_VERY_WEAK)
+    self._assert_dominated(
+        0,
+        pyspiel.load_matrix_game("matrix_pd"),
+        1,
+        lp_solver.DominanceType.DOMINANCE_STRICT,
+    )
+    self._assert_undominated(
+        1,
+        pyspiel.load_matrix_game("matrix_pd"),
+        1,
+        lp_solver.DominanceType.DOMINANCE_VERY_WEAK,
+    )
 
   def test_dominance_mixture(self):
     mixture = lp_solver.is_dominated(
-        0, [[1., 1., 1.], [2., 0., 1.], [0., 2., 2.]],
         0,
-        lp_solver.DOMINANCE_WEAK,
-        return_mixture=True)
+        [[1.0, 1.0, 1.0], [2.0, 0.0, 1.0], [0.0, 2.0, 2.0]],
+        0,
+        lp_solver.DominanceType.DOMINANCE_WEAK,
+        return_mixture=True,
+    )
     self.assertAlmostEqual(mixture[0], 0)
     self.assertAlmostEqual(mixture[1], 0.5)
     self.assertAlmostEqual(mixture[2], 0.5)
+
+  def test_is_dominated_propagates_solver_error(self):
+    # A solver failure must not be reported as "not dominated": action 0 here
+    # is strictly dominated by the 50/50 mixture of actions 1 and 2.
+    with mock.patch.object(
+        cp.Problem, "solve", side_effect=cp.SolverError("solver failed")
+    ):
+      with self.assertRaises(cp.SolverError):
+        lp_solver.is_dominated(
+            0,
+            [[1.0, 1.0], [2.1, 0.0], [0.0, 2.0]],
+            0,
+            lp_solver.DominanceType.DOMINANCE_STRICT,
+        )
 
   def _checked_iterated_dominance(self, *args, **kwargs):
     reduced_game, live_actions = lp_solver.iterated_dominance(*args, **kwargs)
@@ -175,7 +299,8 @@ class LPSolversTest(absltest.TestCase):
     # find the strictly dominant (D, D) strategy
     pd = pyspiel.load_matrix_game("matrix_pd")
     pd_dom, pd_live = self._checked_iterated_dominance(
-        pd, lp_solver.DOMINANCE_STRICT)
+        pd, lp_solver.DominanceType.DOMINANCE_STRICT
+    )
     self.assertEqual(pd_dom.num_rows(), 1)
     self.assertEqual(pd_dom.num_cols(), 1)
     self.assertEqual(pd_dom.row_action_name(0), "Defect")
@@ -188,7 +313,8 @@ class LPSolversTest(absltest.TestCase):
     auction = pyspiel.extensive_to_matrix_game(
         pyspiel.load_game("first_sealed_auction(max_value=3)"))
     auction_dom, auction_live = self._checked_iterated_dominance(
-        auction, lp_solver.DOMINANCE_STRICT)
+        auction, lp_solver.DominanceType.DOMINANCE_STRICT
+    )
     # there's just one non-dominated action
     self.assertEqual(auction_dom.num_rows(), 1)
     self.assertEqual(auction_dom.num_cols(), 1)
@@ -197,26 +323,39 @@ class LPSolversTest(absltest.TestCase):
     ].index(auction_dom.row_action_name(0))
     self.assertTrue(auction_live[0][best_action])
     # other actions are all weakly but not all strictly dominated
-    self.assertNotIn(False, [
-        lp_solver.is_dominated(action, auction, 0, lp_solver.DOMINANCE_WEAK)
-        for action in range(6)
-        if action != best_action
-    ])
-    self.assertIn(False, [
-        lp_solver.is_dominated(action, auction, 0, lp_solver.DOMINANCE_STRICT)
-        for action in range(6)
-        if action != best_action
-    ])
+    self.assertNotIn(
+        False,
+        [
+            lp_solver.is_dominated(
+                action, auction, 0, lp_solver.DominanceType.DOMINANCE_WEAK
+            )
+            for action in range(6)
+            if action != best_action
+        ],
+    )
+    self.assertIn(
+        False,
+        [
+            lp_solver.is_dominated(
+                action, auction, 0, lp_solver.DominanceType.DOMINANCE_STRICT
+            )
+            for action in range(6)
+            if action != best_action
+        ],
+    )
 
   def test_iterated_dominance_ordering(self):
     for _ in range(100):
       game = np.random.randint(5, size=(2, 3, 3))
       unused_reduced_strict, live_strict = self._checked_iterated_dominance(
-          game, lp_solver.DOMINANCE_STRICT)
+          game, lp_solver.DominanceType.DOMINANCE_STRICT
+      )
       unused_reduced_weak, live_weak = self._checked_iterated_dominance(
-          game, lp_solver.DOMINANCE_WEAK)
+          game, lp_solver.DominanceType.DOMINANCE_WEAK
+      )
       unused_reduced_vweak, live_vweak = self._checked_iterated_dominance(
-          game, lp_solver.DOMINANCE_VERY_WEAK)
+          game, lp_solver.DominanceType.DOMINANCE_VERY_WEAK
+      )
       for player in range(2):
         self.assertTrue((live_strict[player] >= live_weak[player]).all())
         self.assertTrue((live_strict[player] >= live_vweak[player]).all())
@@ -226,12 +365,14 @@ class LPSolversTest(absltest.TestCase):
     for _ in range(100):
       game = np.random.randint(5, size=(3, 2, 2, 3))
       unused_reduced, live = self._checked_iterated_dominance(
-          game, lp_solver.DOMINANCE_STRICT)
+          game, lp_solver.DominanceType.DOMINANCE_STRICT
+      )
       perms = [np.random.permutation(size) for size in game.shape]
       game_perm = game[tuple(np.meshgrid(
           *perms, indexing="ij"))].transpose([0] + list(1 + perms[0]))
       unused_reduced_perm, live_perm = self._checked_iterated_dominance(
-          game_perm, lp_solver.DOMINANCE_STRICT)
+          game_perm, lp_solver.DominanceType.DOMINANCE_STRICT
+      )
       for player in range(3):
         perm_player = perms[0][player]
         self.assertListEqual(live_perm[player].tolist(),

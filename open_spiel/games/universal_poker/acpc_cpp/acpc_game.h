@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2019 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,8 +18,8 @@
 #include <memory>
 #include <string>
 
-#include "open_spiel/abseil-cpp/absl/memory/memory.h"
-#include "open_spiel/abseil-cpp/absl/types/span.h"
+#include "absl/memory/memory.h"
+#include "absl/types/span.h"
 #include "open_spiel/games/universal_poker/acpc/project_acpc_server/game.h"
 #include "open_spiel/spiel_utils.h"
 
@@ -93,7 +93,6 @@ class ACPCState {
   uint8_t CurrentPlayer() const;
   uint8_t NumFolded() const;
   uint32_t Money(const uint8_t player) const;
-  uint32_t Ante(const uint8_t player) const;
   uint32_t TotalSpent() const;
   uint32_t CurrentSpent(const uint8_t player) const;
   std::string ToString() const;

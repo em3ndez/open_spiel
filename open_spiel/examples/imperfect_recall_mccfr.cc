@@ -1,10 +1,10 @@
-// Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
+// Copyright 2021 DeepMind Technologies Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,21 +15,25 @@
 #include <ostream>
 #include <string>
 
-#include "open_spiel/abseil-cpp/absl/flags/flag.h"
-#include "open_spiel/abseil-cpp/absl/flags/parse.h"
+#include "absl/flags/flag.h"
+#include "absl/flags/parse.h"
+#include "open_spiel/algorithms/tabular_best_response_mdp.h"
 #include "open_spiel/algorithms/external_sampling_mccfr.h"
 #include "open_spiel/algorithms/outcome_sampling_mccfr.h"
-#include "open_spiel/games/phantom_ttt.h"
+#include "open_spiel/games/phantom_ttt/phantom_ttt.h"
 #include "open_spiel/spiel.h"
 #include "open_spiel/spiel_utils.h"
 
 // E.g. another choice: dark_hex_ir(board_size=2)
-ABSL_FLAG(std::string, game, "phantom_ttt_ir", "Game string");
+ABSL_FLAG(std::string, game, "liars_dice_ir", "Game string");
 ABSL_FLAG(int, num_iters, 1000000, "How many iters to run for.");
 ABSL_FLAG(int, report_every, 1000, "How often to report.");
 
 namespace open_spiel {
 namespace {
+
+using algorithms::TabularBestResponseMDP;
+using algorithms::TabularBestResponseMDPInfo;
 
 void ImperfectRecallMCCFR() {
   std::shared_ptr<const open_spiel::Game> game =
@@ -40,17 +44,14 @@ void ImperfectRecallMCCFR() {
   for (int i = 0; i < absl::GetFlag(FLAGS_num_iters); ++i) {
     solver.RunIteration();
 
-    // Do not run exploitability or NashConv, as it does not support imperfect
-    // recall games. Simply print out the average strategy.
     if (i % absl::GetFlag(FLAGS_report_every) == 0 ||
         i == absl::GetFlag(FLAGS_num_iters) - 1) {
-      std::cerr << "Iteration " << i << " average policy is " << std::endl;
-      for (const auto& key_and_values : solver.InfoStateValuesTable()) {
-        std::cout << "infostate key: " << std::endl
-                  << key_and_values.first << std::endl
-                  << "values: " << std::endl
-                  << key_and_values.second.ToString() << std::endl;
-      }
+      // Must use tabular best response MDP as it supports imperfect recall
+      // games.
+      std::shared_ptr<Policy> average_policy = solver.AveragePolicy();
+      TabularBestResponseMDP tbr(*game, *average_policy);
+      TabularBestResponseMDPInfo br_info = tbr.NashConv();
+      std::cout << i << " " << br_info.nash_conv << std::endl;
     }
   }
 }
